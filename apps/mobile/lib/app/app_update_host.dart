@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -8,9 +9,27 @@ import 'package:flutter/services.dart';
 const _channel = MethodChannel('zettax.app/updates');
 const _manifestUrl = 'https://zettax.app/updates/latest.json';
 
+bool isEligibleZettaxUpdate(Map<String, dynamic> data, int installedCode) {
+  final latestCode = data['versionCode'];
+  final url = Uri.tryParse(data['apkUrl']?.toString() ?? '');
+  final checksum = data['sha256']?.toString().toLowerCase() ?? '';
+  return latestCode is int &&
+      latestCode > installedCode &&
+      url != null &&
+      url.scheme == 'https' &&
+      url.host == 'zettax.app' &&
+      url.userInfo.isEmpty &&
+      url.port == 443 &&
+      url.path.startsWith('/downloads/') &&
+      url.path.endsWith('.apk') &&
+      RegExp(r'^[a-f0-9]{64}$').hasMatch(checksum);
+}
+
 class AppUpdateHost extends StatefulWidget {
-  const AppUpdateHost({super.key, required this.child});
+  const AppUpdateHost(
+      {super.key, required this.child, required this.navigatorKey});
   final Widget child;
+  final GlobalKey<NavigatorState> navigatorKey;
 
   @override
   State<AppUpdateHost> createState() => _AppUpdateHostState();
@@ -19,14 +38,17 @@ class AppUpdateHost extends StatefulWidget {
 class _AppUpdateHostState extends State<AppUpdateHost>
     with WidgetsBindingObserver {
   final _dio = Dio();
+  Timer? _timer;
   bool _checking = false;
   DateTime? _lastCheck;
+  int? _dismissedVersionCode;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    _timer = Timer.periodic(const Duration(minutes: 5), (_) => _check());
   }
 
   @override
@@ -39,7 +61,7 @@ class _AppUpdateHostState extends State<AppUpdateHost>
         _checking ||
         (_lastCheck != null &&
             DateTime.now().difference(_lastCheck!) <
-                const Duration(minutes: 15))) {
+                const Duration(minutes: 5))) {
       return;
     }
     _checking = true;
@@ -47,21 +69,20 @@ class _AppUpdateHostState extends State<AppUpdateHost>
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         _manifestUrl,
-        options: Options(headers: {'Cache-Control': 'no-cache'}),
+        options: Options(
+          headers: {'Cache-Control': 'no-cache'},
+          followRedirects: false,
+        ),
       );
       final data = response.data;
       if (data == null) return;
-      final latestCode = data['versionCode'];
       final installedCode = await _channel.invokeMethod<int>('versionCode');
       final url = Uri.tryParse(data['apkUrl']?.toString() ?? '');
       final checksum = data['sha256']?.toString().toLowerCase() ?? '';
-      if (latestCode is! int ||
-          installedCode == null ||
-          latestCode <= installedCode ||
+      if (installedCode == null ||
+          !isEligibleZettaxUpdate(data, installedCode) ||
+          data['versionCode'] == _dismissedVersionCode ||
           url == null ||
-          url.scheme != 'https' ||
-          url.host != 'zettax.app' ||
-          !RegExp(r'^[a-f0-9]{64}$').hasMatch(checksum) ||
           !mounted) {
         return;
       }
@@ -75,11 +96,13 @@ class _AppUpdateHostState extends State<AppUpdateHost>
 
   Future<void> _showUpdate(
       Map<String, dynamic> data, Uri url, String checksum) async {
+    final dialogHost = widget.navigatorKey.currentState?.overlay?.context;
+    if (dialogHost == null) return;
     var downloading = false;
     var progress = 0.0;
     String? error;
     await showDialog<void>(
-      context: context,
+      context: dialogHost,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, update) => AlertDialog(
@@ -109,8 +132,12 @@ class _AppUpdateHostState extends State<AppUpdateHost>
               ]),
           actions: [
             TextButton(
-              onPressed:
-                  downloading ? null : () => Navigator.pop(dialogContext),
+              onPressed: downloading
+                  ? null
+                  : () {
+                      _dismissedVersionCode = data['versionCode'] as int?;
+                      Navigator.pop(dialogContext);
+                    },
               child: const Text('Later'),
             ),
             FilledButton(
@@ -135,6 +162,7 @@ class _AppUpdateHostState extends State<AppUpdateHost>
                                     .toString() !=
                                 checksum) {
                           await _dio.downloadUri(url, apk.path,
+                              options: Options(followRedirects: false),
                               onReceiveProgress: (received, total) {
                             if (total > 0 && dialogContext.mounted) {
                               update(() => progress = received / total);
@@ -180,6 +208,7 @@ class _AppUpdateHostState extends State<AppUpdateHost>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
     _dio.close();
     super.dispose();
   }

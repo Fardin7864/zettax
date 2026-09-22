@@ -49,10 +49,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
-    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (status >= Number(HttpStatus.INTERNAL_SERVER_ERROR)) {
       const detail =
         exception instanceof Error
-          ? exception.stack ?? exception.message
+          ? (exception.stack ?? exception.message)
           : String(exception);
       this.logger.error(
         `${request.method} ${request.path} failed (requestId=${request.requestId})`,

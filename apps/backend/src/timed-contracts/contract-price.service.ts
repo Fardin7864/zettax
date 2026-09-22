@@ -3,7 +3,11 @@ import { Prisma } from "@prisma/client";
 import { ApiErrorException } from "../http/api-error";
 import { PrismaService } from "../database/prisma.service";
 
-type Observation = { price: Prisma.Decimal; timestamp: Date; providerId: string };
+type Observation = {
+  price: Prisma.Decimal;
+  timestamp: Date;
+  providerId: string;
+};
 
 @Injectable()
 export class ContractPriceService {
@@ -30,15 +34,26 @@ export class ContractPriceService {
     const existing = this.inFlight.get(key);
     if (existing) return existing;
     if (this.inFlight.size >= 100) {
-      throw new ApiErrorException("CONTRACT_PRICE_UNAVAILABLE", "Price service is busy. Please retry.", 503);
+      throw new ApiErrorException(
+        "CONTRACT_PRICE_UNAVAILABLE",
+        "Price service is busy. Please retry.",
+        503,
+      );
     }
     const pending = this.load(symbol, providerId, start);
     this.inFlight.set(key, pending);
-    try { return await pending; }
-    finally { this.inFlight.delete(key); }
+    try {
+      return await pending;
+    } finally {
+      this.inFlight.delete(key);
+    }
   }
 
-  private async load(symbol: string, providerId: string, start: number): Promise<Observation> {
+  private async load(
+    symbol: string,
+    providerId: string,
+    start: number,
+  ): Promise<Observation> {
     const timestamp = new Date(start + 999);
     const archived = await this.prisma?.contractPriceObservation.findUnique({
       where: { source_timestamp: { source: providerId, timestamp } },
@@ -59,9 +74,12 @@ export class ContractPriceService {
       if (!response.ok) throw new Error("Provider unavailable");
       let payload: unknown = await response.json();
       if (Array.isArray(payload) && payload.length === 0) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        response = await fetch(`https://api.binance.com/api/v3/klines?${query.toString()}`, { signal: AbortSignal.timeout(1500) });
-        if (!response.ok) throw new Error('Provider unavailable');
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        response = await fetch(
+          `https://api.binance.com/api/v3/klines?${query.toString()}`,
+          { signal: AbortSignal.timeout(1500) },
+        );
+        if (!response.ok) throw new Error("Provider unavailable");
         payload = await response.json();
       }
       if (!Array.isArray(payload) || payload.length !== 1)
@@ -79,12 +97,20 @@ export class ContractPriceService {
         throw new Error("Invalid price");
       if (this.prisma) {
         await this.prisma.contractPriceObservation.createMany({
-          data: [{ source: providerId, timestamp, price, payload: row as Prisma.InputJsonValue }],
+          data: [
+            {
+              source: providerId,
+              timestamp,
+              price,
+              payload: row as Prisma.InputJsonValue,
+            },
+          ],
           skipDuplicates: true,
         });
-        const saved = await this.prisma.contractPriceObservation.findUniqueOrThrow({
-          where: { source_timestamp: { source: providerId, timestamp } },
-        });
+        const saved =
+          await this.prisma.contractPriceObservation.findUniqueOrThrow({
+            where: { source_timestamp: { source: providerId, timestamp } },
+          });
         return { price: saved.price, timestamp, providerId };
       }
       return {

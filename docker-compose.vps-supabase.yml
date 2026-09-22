@@ -45,7 +45,12 @@ x-backend-environment: &backend-environment
 services:
   redis:
     image: redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
-    command: ["/bin/sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    command:
+      [
+        "/bin/sh",
+        "-c",
+        'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"',
+      ]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     volumes:
@@ -60,7 +65,11 @@ services:
     cpus: 0.5
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG',
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -144,7 +153,11 @@ services:
   financial-worker:
     image: primevest-backend:${RELEASE_VERSION:?RELEASE_VERSION is required}
     environment: *backend-environment
-    command: ["node", "/workspace/apps/backend/dist/apps/backend/src/workers/financial-worker.js"]
+    command:
+      [
+        "node",
+        "/workspace/apps/backend/dist/apps/backend/src/workers/financial-worker.js",
+      ]
     volumes:
       - /srv/primevest/secrets/evidence.key:/run/secrets/evidence.key:ro
       - /srv/primevest/secrets/supabase-ca.crt:/run/secrets/supabase-ca.crt:ro

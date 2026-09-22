@@ -25,13 +25,17 @@ export class ApiEnvelopeInterceptor implements NestInterceptor<
     }
 
     return next.handle().pipe(
-      map((result) => result === undefined ? result : ({
-        ...(Object.hasOwn(result, "data") ? result : { data: result }),
-        meta: {
-          requestId: request.requestId,
-          timestamp: new Date().toISOString(),
-        },
-      })),
+      map((result) =>
+        result === undefined
+          ? result
+          : {
+              ...(Object.hasOwn(result, "data") ? result : { data: result }),
+              meta: {
+                requestId: request.requestId,
+                timestamp: new Date().toISOString(),
+              },
+            },
+      ),
     );
   }
 }

@@ -30,14 +30,12 @@ describe("hosted funding transaction timeout", () => {
     });
   });
   it("returns an actionable recovery error rather than an internal server error", async () => {
-    const transaction = vi
-      .fn()
-      .mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError("expired", {
-          code: "P2028",
-          clientVersion: "test",
-        }),
-      );
+    const transaction = vi.fn().mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("expired", {
+        code: "P2028",
+        clientVersion: "test",
+      }),
+    );
     await expect(
       runner(transaction).withSerializableRetry(async () => undefined),
     ).rejects.toMatchObject({ code: "FUNDING_TRANSACTION_TIMEOUT" });

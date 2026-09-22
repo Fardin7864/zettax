@@ -50,7 +50,9 @@ export class MarketDataService {
     private readonly binance: BinanceMarketDataProvider,
     private readonly frankfurter: FrankfurterMarketDataProvider,
     private readonly twelveData: TwelveDataMarketDataProvider,
-    private readonly sandbox: SandboxMarketDataProvider = new SandboxMarketDataProvider(new DemoPriceService()),
+    private readonly sandbox: SandboxMarketDataProvider = new SandboxMarketDataProvider(
+      new DemoPriceService(),
+    ),
     @Optional() private readonly sampledPrices?: SampledPriceService,
   ) {}
 
@@ -95,14 +97,28 @@ export class MarketDataService {
       );
     }
 
-    const sampled = this.sampledPrices?.enabled && this.sampledPrices.supports(instrument.id);
+    const sampled =
+      this.sampledPrices?.enabled && this.sampledPrices.supports(instrument.id);
     if (sampled) {
-      const result = await this.sampledPrices!.candles(instrument, interval, limit, beforeDate);
+      const result = await this.sampledPrices.candles(
+        instrument,
+        interval,
+        limit,
+        beforeDate,
+      );
       return {
-        instrumentId: instrument.id, symbol: instrument.symbol, assetClass: instrument.assetClass,
-        requestedInterval: interval, ...result, receivedAt: new Date().toISOString(),
-        executionPrice: false, executionEligible: false,
-        nextCursor: result.candles.length === limit ? result.candles[0]?.openTime ?? null : null,
+        instrumentId: instrument.id,
+        symbol: instrument.symbol,
+        assetClass: instrument.assetClass,
+        requestedInterval: interval,
+        ...result,
+        receivedAt: new Date().toISOString(),
+        executionPrice: false,
+        executionEligible: false,
+        nextCursor:
+          result.candles.length === limit
+            ? (result.candles[0]?.openTime ?? null)
+            : null,
       };
     }
     const provider = this.providerFor(instrument.assetClass);
@@ -145,7 +161,11 @@ export class MarketDataService {
     if (assetClass === "FOREX" && !this.twelveDataEnabled) {
       return this.frankfurter;
     }
-    if (!this.twelveDataEnabled && this.config.get<string>("COMPLIANCE_MODE") === "SANDBOX") return this.sandbox;
+    if (
+      !this.twelveDataEnabled &&
+      this.config.get<string>("COMPLIANCE_MODE") === "SANDBOX"
+    )
+      return this.sandbox;
     return this.twelveData;
   }
 

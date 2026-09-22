@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { validate } from "class-validator";
@@ -60,9 +59,14 @@ describe("authentication security", () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const revokeOthers = vi.fn().mockResolvedValue({ count: 2 });
     const prisma = {
-      user: { findUnique: vi.fn().mockResolvedValue({ passwordHash: "old-hash" }) },
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ passwordHash: "old-hash" }),
+      },
       $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) =>
-        work({ user: { updateMany }, userSession: { updateMany: revokeOthers } }),
+        work({
+          user: { updateMany },
+          userSession: { updateMany: revokeOthers },
+        }),
       ),
     } as unknown as PrismaService;
     const hasher = {

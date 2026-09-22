@@ -109,9 +109,11 @@ export class SupabaseEvidenceStorage {
     bucket: string,
     objectKey: string,
     payload: Buffer,
-    _size: number,
-    _metadata: Record<string, string>,
+    size: number,
+    metadata: Record<string, string>,
   ) {
+    void size;
+    void metadata;
     const response = await this.request(
       this.objectPath(bucket, objectKey),
       "POST",

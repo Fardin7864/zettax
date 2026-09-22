@@ -3,9 +3,17 @@ import { IsEnum, IsInt, IsOptional, Max, Min } from "class-validator";
 import { DepositStatus, WithdrawalStatus } from "@prisma/client";
 
 export class FundingPaginationDto {
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(1000000)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000000)
   page = 1;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   pageSize = 25;
 }
 export class AdminDepositQueryDto extends FundingPaginationDto {

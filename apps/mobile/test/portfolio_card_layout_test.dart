@@ -31,7 +31,7 @@ void main() {
           body: Center(
             child: SizedBox(
               width: 260,
-                height: 224,
+              height: 224,
               child: ActivityCard(
                 asset: asset,
                 title: 'BTC/USD',

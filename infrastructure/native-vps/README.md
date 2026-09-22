@@ -17,8 +17,9 @@ under `/srv/zettax/releases/`.
 
 `/srv/zettax/shared/production.env` and `/srv/zettax/secrets/evidence.key`
 are readable only by root and the `zettax` group. They are not part of a release.
-The environment connects to the existing Supabase PostgreSQL database and
-Supabase S3 screenshot storage. Keep the 32-byte evidence key backed up: old
+The environment connects to Supabase project `zxmyfsyndpvxhhtgicbf` using a
+restricted PostgreSQL login and private Supabase object storage. The previous
+configuration is kept as a root-only rollback file on the VPS. Keep the 32-byte evidence key backed up: old
 screenshots cannot be decrypted without it.
 
 ## Health checks

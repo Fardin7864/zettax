@@ -30,7 +30,7 @@ export class SupabaseS3Storage {
     this.secretKey = config.get<string>("SUPABASE_S3_SECRET_ACCESS_KEY", "");
     this.region = config.get<string>("SUPABASE_S3_REGION", "us-east-1");
     if (!endpoint || !this.accessKey || !this.secretKey) this.unavailable();
-    this.endpoint = new URL(endpoint!);
+    this.endpoint = new URL(endpoint);
     if (
       this.endpoint.protocol !== "https:" ||
       this.endpoint.username ||
@@ -112,9 +112,11 @@ export class SupabaseS3Storage {
     bucket: string,
     objectKey: string,
     payload: Buffer,
-    _size: number,
-    _metadata: Record<string, string>,
+    size: number,
+    metadata: Record<string, string>,
   ) {
+    void size;
+    void metadata;
     if (!(await this.request("PUT", bucket, objectKey, payload)).ok)
       this.unavailable();
   }

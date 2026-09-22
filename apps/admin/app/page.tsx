@@ -94,7 +94,8 @@ export default function Operations() {
   const [requestImage, setRequestImage] = useState("");
   const [requestImageError, setRequestImageError] = useState("");
   const [requestImageLoading, setRequestImageLoading] = useState(false);
-  const fundingDetailsOpen = selected !== null && ["deposits", "withdrawals"].includes(area);
+  const fundingDetailsOpen =
+    selected !== null && ["deposits", "withdrawals"].includes(area);
   useEffect(() => {
     setRequestImage("");
     setRequestImageError("");
@@ -150,7 +151,8 @@ export default function Operations() {
   useEffect(() => {
     if (!action && !preview && !fundingDetailsOpen) return;
     const previous = document.activeElement as HTMLElement | null;
-    const dialog = action || preview ? dialogRef.current : detailsDialogRef.current;
+    const dialog =
+      action || preview ? dialogRef.current : detailsDialogRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusable = () =>
@@ -241,13 +243,19 @@ export default function Operations() {
         : area === "trading"
           ? "/admin/trading-settings"
           : `/admin/records/${area}?page=${page}&search=${encodeURIComponent(search)}`;
-      const result = await request(["deposits", "withdrawals"].includes(area)
-        ? `${path}?page=${page}&pageSize=${pageSize}${status ? `&status=${encodeURIComponent(status)}` : ""}`
-        : path);
+      const result = await request(
+        ["deposits", "withdrawals"].includes(area)
+          ? `${path}?page=${page}&pageSize=${pageSize}${status ? `&status=${encodeURIComponent(status)}` : ""}`
+          : path,
+      );
       if (version === listVersion.current) {
         setData(result);
-        if (["deposits", "withdrawals"].includes(area) && !Array.isArray(result)
-          && page > Number(result.totalPages)) setPage(Number(result.totalPages));
+        if (
+          ["deposits", "withdrawals"].includes(area) &&
+          !Array.isArray(result) &&
+          page > Number(result.totalPages)
+        )
+          setPage(Number(result.totalPages));
       }
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Loading failed");
@@ -266,13 +274,19 @@ export default function Operations() {
       await load();
       setMessage("Withdrawal completed. User and admin history updated.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not complete withdrawal.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not complete withdrawal.",
+      );
     } finally {
       completingWithdrawal.current = false;
       setBusy(false);
     }
   }
-  function invalidateListRequests() { listVersion.current++; }
+  function invalidateListRequests() {
+    listVersion.current++;
+  }
   useEffect(() => {
     void load();
     return invalidateListRequests;
@@ -316,9 +330,16 @@ export default function Operations() {
         const requests = await request(path);
         if (!stopped && version === listVersion.current) {
           setData(requests);
-          const rows = Array.isArray(requests) ? requests : array(requests.items);
-          setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? current : null);
-          if (!Array.isArray(requests) && page > Number(requests.totalPages)) setPage(Number(requests.totalPages));
+          const rows = Array.isArray(requests)
+            ? requests
+            : array(requests.items);
+          setSelected((current) =>
+            current
+              ? (rows.find((row) => row.id === current.id) ?? current)
+              : null,
+          );
+          if (!Array.isArray(requests) && page > Number(requests.totalPages))
+            setPage(Number(requests.totalPages));
         }
       } catch {
         // Keep the current table visible; the main loader reports errors.
@@ -632,12 +653,24 @@ export default function Operations() {
             <select
               aria-label="Funding status"
               value={status}
-              onChange={(e) => { setStatus(e.target.value); setPage(1); setData(null); setSelected(null); }}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+                setData(null);
+                setSelected(null);
+              }}
               style={{ width: "auto" }}
             >
               <option value="">All history</option>
               {(area === "deposits"
-                ? ["CREATED", "PENDING_REVIEW", "APPROVED", "CREDITED", "REJECTED", "CANCELLED"]
+                ? [
+                    "CREATED",
+                    "PENDING_REVIEW",
+                    "APPROVED",
+                    "CREDITED",
+                    "REJECTED",
+                    "CANCELLED",
+                  ]
                 : [
                     "REQUESTED",
                     "UNDER_REVIEW",
@@ -656,16 +689,58 @@ export default function Operations() {
           )}
           {["deposits", "withdrawals"].includes(area) && (
             <>
-              <select aria-label="Requests per page" value={pageSize}
-                style={{ width: "auto" }} disabled={busy}
-                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); setData(null); setSelected(null); }}>
-                {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size} per page</option>)}
+              <select
+                aria-label="Requests per page"
+                value={pageSize}
+                style={{ width: "auto" }}
+                disabled={busy}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                  setData(null);
+                  setSelected(null);
+                }}
+              >
+                {[10, 25, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size} per page
+                  </option>
+                ))}
               </select>
-              <button disabled={busy || page === 1} onClick={() => { setPage((p) => p - 1); setData(null); setSelected(null); }}>Previous</button>
-              <span aria-live="polite">Page {page} of {data && !Array.isArray(data) ? Number(data.totalPages) || 1 : 1}
-                {data && !Array.isArray(data) ? ` · ${Number(data.total) || 0} requests` : ""}</span>
-              <button disabled={busy || !data || Array.isArray(data) || page >= Number(data.totalPages)}
-                onClick={() => { setPage((p) => p + 1); setData(null); setSelected(null); }}>Next</button>
+              <button
+                disabled={busy || page === 1}
+                onClick={() => {
+                  setPage((p) => p - 1);
+                  setData(null);
+                  setSelected(null);
+                }}
+              >
+                Previous
+              </button>
+              <span aria-live="polite">
+                Page {page} of{" "}
+                {data && !Array.isArray(data)
+                  ? Number(data.totalPages) || 1
+                  : 1}
+                {data && !Array.isArray(data)
+                  ? ` · ${Number(data.total) || 0} requests`
+                  : ""}
+              </span>
+              <button
+                disabled={
+                  busy ||
+                  !data ||
+                  Array.isArray(data) ||
+                  page >= Number(data.totalPages)
+                }
+                onClick={() => {
+                  setPage((p) => p + 1);
+                  setData(null);
+                  setSelected(null);
+                }}
+              >
+                Next
+              </button>
             </>
           )}
           {[
@@ -884,11 +959,22 @@ export default function Operations() {
                     <tr
                       key={str(row.id ?? i)}
                       className={`${["deposits", "withdrawals"].includes(area) ? "funding-row" : ""} ${isPendingFunding(area, row.status) ? "pending-row" : ""}`}
-                      tabIndex={["deposits", "withdrawals"].includes(area) ? 0 : undefined}
-                      onClick={["deposits", "withdrawals"].includes(area) ? () => setSelected(row) : undefined}
+                      tabIndex={
+                        ["deposits", "withdrawals"].includes(area)
+                          ? 0
+                          : undefined
+                      }
+                      onClick={
+                        ["deposits", "withdrawals"].includes(area)
+                          ? () => setSelected(row)
+                          : undefined
+                      }
                       onKeyDown={(event) => {
-                        if (event.target === event.currentTarget && ["deposits", "withdrawals"].includes(area)
-                          && (event.key === "Enter" || event.key === " ")) {
+                        if (
+                          event.target === event.currentTarget &&
+                          ["deposits", "withdrawals"].includes(area) &&
+                          (event.key === "Enter" || event.key === " ")
+                        ) {
                           event.preventDefault();
                           setSelected(row);
                         }
@@ -902,7 +988,14 @@ export default function Operations() {
                         </td>
                       ))}
                       <td>
-                        <button onClick={(event) => { event.stopPropagation(); setSelected(row); }}>Open</button>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelected(row);
+                          }}
+                        >
+                          Open
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -917,255 +1010,304 @@ export default function Operations() {
           </section>
         )}
         {selected && (
-          <div className={fundingDetailsOpen ? "modal request-details-modal" : undefined}
+          <div
+            className={
+              fundingDetailsOpen ? "modal request-details-modal" : undefined
+            }
             ref={detailsDialogRef}
             role={fundingDetailsOpen ? "dialog" : undefined}
             tabIndex={fundingDetailsOpen ? -1 : undefined}
-            aria-hidden={fundingDetailsOpen && (Boolean(action) || Boolean(preview)) ? true : undefined}
+            aria-hidden={
+              fundingDetailsOpen && (Boolean(action) || Boolean(preview))
+                ? true
+                : undefined
+            }
             aria-modal={fundingDetailsOpen ? true : undefined}
-            aria-label={fundingDetailsOpen ? `${area === "deposits" ? "Deposit" : "Withdrawal"} request details` : undefined}
+            aria-label={
+              fundingDetailsOpen
+                ? `${area === "deposits" ? "Deposit" : "Withdrawal"} request details`
+                : undefined
+            }
             onClick={(event) => {
-              if (fundingDetailsOpen && event.target === event.currentTarget && !busy) setSelected(null);
-            }}>
-          <section className="ops-panel">
-            <button className="close" disabled={busy} onClick={() => setSelected(null)}>
-              Close details
-            </button>
-            <h2>{fundingDetailsOpen ? `${area === "deposits" ? "Deposit" : "Withdrawal"} request details` : "Record details"}</h2>
-            {fundingDetailsOpen && message && <div className="notice" role="alert">{message}</div>}
-            {details(selected)}
-            {area === "deposits" && (
-              <div className="deposit-screenshot">
-                <h3>Deposit screenshot</h3>
-                {requestImageLoading && <p>Loading screenshot…</p>}
-                {requestImageError && <p role="alert">{requestImageError}</p>}
-                {!selected.evidenceObjectKey && (
-                  <p>No screenshot attached. Screenshots are optional.</p>
-                )}
-                {requestImage && (
-                  <Image
-                    src={requestImage}
-                    width={600}
-                    height={800}
-                    alt="Deposit screenshot"
-                    unoptimized
-                    style={{
-                      width: "100%",
-                      maxWidth: 500,
-                      height: "auto",
-                      borderRadius: 12,
-                    }}
-                  />
-                )}
-              </div>
-            )}
-            <div className="actions">
-              {Boolean(
-                selected.evidenceObjectKey ||
-                selected.evidenceId ||
-                (selected.evidenceReference &&
-                  !str(selected.evidenceReference).startsWith("office:")),
-              ) && (
-                <button onClick={() => void showEvidence(selected)}>
-                  View private evidence
-                </button>
+              if (
+                fundingDetailsOpen &&
+                event.target === event.currentTarget &&
+                !busy
+              )
+                setSelected(null);
+            }}
+          >
+            <section className="ops-panel">
+              <button
+                className="close"
+                disabled={busy}
+                onClick={() => setSelected(null)}
+              >
+                Close details
+              </button>
+              <h2>
+                {fundingDetailsOpen
+                  ? `${area === "deposits" ? "Deposit" : "Withdrawal"} request details`
+                  : "Record details"}
+              </h2>
+              {fundingDetailsOpen && message && (
+                <div className="notice" role="alert">
+                  {message}
+                </div>
               )}
-              {area === "deposits" && selected.status === "PENDING_REVIEW" && (
-                <>
+              {details(selected)}
+              {area === "deposits" && (
+                <div className="deposit-screenshot">
+                  <h3>Deposit screenshot</h3>
+                  {requestImageLoading && <p>Loading screenshot…</p>}
+                  {requestImageError && <p role="alert">{requestImageError}</p>}
+                  {!selected.evidenceObjectKey && (
+                    <p>No screenshot attached. Screenshots are optional.</p>
+                  )}
+                  {requestImage && (
+                    <Image
+                      src={requestImage}
+                      width={600}
+                      height={800}
+                      alt="Deposit screenshot"
+                      unoptimized
+                      style={{
+                        width: "100%",
+                        maxWidth: 500,
+                        height: "auto",
+                        borderRadius: 12,
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+              <div className="actions">
+                {Boolean(
+                  selected.evidenceObjectKey ||
+                  selected.evidenceId ||
+                  (selected.evidenceReference &&
+                    !str(selected.evidenceReference).startsWith("office:")),
+                ) && (
+                  <button onClick={() => void showEvidence(selected)}>
+                    View private evidence
+                  </button>
+                )}
+                {area === "deposits" &&
+                  selected.status === "PENDING_REVIEW" && (
+                    <>
+                      <button
+                        onClick={() =>
+                          command(
+                            selected.virtualFunding
+                              ? "Record virtual deposit review"
+                              : "Verify actual provider transfer",
+                            `/admin/deposits/${str(selected.id)}/verify`,
+                            [
+                              field(
+                                "reference",
+                                undefined,
+                                selected.virtualFunding
+                                  ? "Virtual review reference"
+                                  : "Provider statement / verification reference",
+                              ),
+                            ],
+                          )
+                        }
+                      >
+                        {selected.virtualFunding
+                          ? "Record review"
+                          : "Verify transfer"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          command(
+                            selected.virtualFunding
+                              ? "Approve virtual deposit credit"
+                              : "Approve verified deposit credit",
+                            `/admin/deposits/${str(selected.id)}/approve`,
+                          )
+                        }
+                      >
+                        Approve credit
+                      </button>
+                      <button
+                        onClick={() =>
+                          command(
+                            "Reject deposit",
+                            `/admin/deposits/${str(selected.id)}/reject`,
+                            [field("reason")],
+                          )
+                        }
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                {area === "withdrawals" &&
+                  !["PAID", "REJECTED", "CANCELLED"].includes(
+                    str(selected.status),
+                  ) && (
+                    <>
+                      {selected.virtualFunding === true && (
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={() => void completeWithdrawal(selected)}
+                        >
+                          Done
+                        </button>
+                      )}
+                    </>
+                  )}
+                {area === "payment-methods" && (
+                  <button
+                    onClick={() =>
+                      propose("PAYMENT_METHOD", str(selected.id), [
+                        field("accountNumber", selected.accountNumber),
+                        {
+                          key: "accountType",
+                          options: ["PERSONAL", "AGENT"],
+                          value: str(selected.accountType),
+                        },
+                        field("instructions", selected.instructions),
+                        field("minimumDeposit", selected.minimumDeposit),
+                        field("maximumDeposit", selected.maximumDeposit),
+                        {
+                          key: "isEnabled",
+                          options: ["true", "false"],
+                          value: str(selected.isEnabled),
+                        },
+                      ])
+                    }
+                  >
+                    Edit receiving details
+                  </button>
+                )}
+                {area === "treasury" && selected.status === "PENDING" && (
                   <button
                     onClick={() =>
                       command(
-                        selected.virtualFunding
-                          ? "Record virtual deposit review"
-                          : "Verify actual provider transfer",
-                        `/admin/deposits/${str(selected.id)}/verify`,
+                        "Independent treasury review",
+                        `/admin/treasury/${str(selected.id)}/review`,
                         [
-                          field(
-                            "reference",
-                            undefined,
-                            selected.virtualFunding
-                              ? "Virtual review reference"
-                              : "Provider statement / verification reference",
-                          ),
+                          {
+                            key: "decision",
+                            options: ["APPROVED", "REJECTED"],
+                          },
                         ],
                       )
                     }
                   >
-                    {selected.virtualFunding
-                      ? "Record review"
-                      : "Verify transfer"}
+                    Review statement
                   </button>
-                  <button
-                    onClick={() =>
-                      command(
-                        selected.virtualFunding
-                          ? "Approve virtual deposit credit"
-                          : "Approve verified deposit credit",
-                        `/admin/deposits/${str(selected.id)}/approve`,
-                      )
-                    }
-                  >
-                    Approve credit
-                  </button>
-                  <button
-                    onClick={() =>
-                      command(
-                        "Reject deposit",
-                        `/admin/deposits/${str(selected.id)}/reject`,
-                        [field("reason")],
-                      )
-                    }
-                  >
-                    Reject
-                  </button>
-                </>
-              )}
-              {area === "withdrawals" &&
-                !["PAID", "REJECTED", "CANCELLED"].includes(
-                  str(selected.status),
-                ) && (
-                  <>
-                    {selected.virtualFunding === true && (
-                      <button className="primary" disabled={busy}
-                        onClick={() => void completeWithdrawal(selected)}>Done</button>
-                    )}
-                  </>
                 )}
-              {area === "payment-methods" && (
-                <button
-                  onClick={() =>
-                    propose("PAYMENT_METHOD", str(selected.id), [
-                      field("accountNumber", selected.accountNumber),
-                      {
-                        key: "accountType",
-                        options: ["PERSONAL", "AGENT"],
-                        value: str(selected.accountType),
-                      },
-                      field("instructions", selected.instructions),
-                      field("minimumDeposit", selected.minimumDeposit),
-                      field("maximumDeposit", selected.maximumDeposit),
-                      {
-                        key: "isEnabled",
-                        options: ["true", "false"],
-                        value: str(selected.isEnabled),
-                      },
-                    ])
-                  }
-                >
-                  Edit receiving details
-                </button>
-              )}
-              {area === "treasury" && selected.status === "PENDING" && (
-                <button
-                  onClick={() =>
-                    command(
-                      "Independent treasury review",
-                      `/admin/treasury/${str(selected.id)}/review`,
-                      [{ key: "decision", options: ["APPROVED", "REJECTED"] }],
-                    )
-                  }
-                >
-                  Review statement
-                </button>
-              )}
-              {area === "changes" && selected.status === "PENDING" && (
-                <button
-                  onClick={() =>
-                    command(
-                      "Independent change review",
-                      `/admin/changes/${str(selected.id)}/review`,
-                      [{ key: "decision", options: ["APPROVED", "REJECTED"] }],
-                    )
-                  }
-                >
-                  Review proposed change
-                </button>
-              )}
-              {area === "users" && (
-                <button
-                  onClick={() =>
-                    propose(
-                      "USER_CONTROLS",
-                      str(selected.id),
-                      [
-                        "depositEnabled",
-                        "withdrawalEnabled",
-                        "tradingEnabled",
-                      ].map((key) => ({
-                        key,
-                        value: str(selected[key]),
-                        options: ["false", "true"],
-                      })),
-                    )
-                  }
-                >
-                  Propose account controls
-                </button>
-              )}
-              {area === "markets" && (
-                <button
-                  onClick={() =>
-                    propose("MARKET", str(selected.id), [
-                      {
-                        key: "realEnabled",
-                        value: str(selected.realEnabled),
-                        options: ["false", "true"],
-                      },
-                    ])
-                  }
-                >
-                  Propose market availability
-                </button>
-              )}
-              {area === "kyc" && (
-                <button
-                  onClick={() =>
-                    propose("KYC_REVIEW", str(selected.id), [
-                      {
-                        key: "status",
-                        options: ["MORE_INFO_REQUIRED", "REJECTED", "APPROVED"],
-                      },
-                      field(
-                        "notes",
-                        undefined,
-                        "Checks performed and findings (minimum 20 characters)",
-                      ),
-                    ])
-                  }
-                >
-                  Propose identity review
-                </button>
-              )}
-              {area === "admins" && (
-                <button
-                  onClick={() =>
-                    propose("ADMIN_ROLE", str(selected.id), [
-                      field(
-                        "roleId",
-                        undefined,
-                        "Role ID from the Roles directory",
-                      ),
-                      { key: "remove", options: ["false", "true"] },
-                    ])
-                  }
-                >
-                  Propose role assignment
-                </button>
-              )}
-              {area === "release" && !selected.revokedAt && (
-                <button
-                  onClick={() =>
-                    command(
-                      "Revoke release sign-off",
-                      `/admin/release/${str(selected.id)}/revoke`,
-                    )
-                  }
-                >
-                  Revoke approval
-                </button>
-              )}
-            </div>
-          </section>
+                {area === "changes" && selected.status === "PENDING" && (
+                  <button
+                    onClick={() =>
+                      command(
+                        "Independent change review",
+                        `/admin/changes/${str(selected.id)}/review`,
+                        [
+                          {
+                            key: "decision",
+                            options: ["APPROVED", "REJECTED"],
+                          },
+                        ],
+                      )
+                    }
+                  >
+                    Review proposed change
+                  </button>
+                )}
+                {area === "users" && (
+                  <button
+                    onClick={() =>
+                      propose(
+                        "USER_CONTROLS",
+                        str(selected.id),
+                        [
+                          "depositEnabled",
+                          "withdrawalEnabled",
+                          "tradingEnabled",
+                        ].map((key) => ({
+                          key,
+                          value: str(selected[key]),
+                          options: ["false", "true"],
+                        })),
+                      )
+                    }
+                  >
+                    Propose account controls
+                  </button>
+                )}
+                {area === "markets" && (
+                  <button
+                    onClick={() =>
+                      propose("MARKET", str(selected.id), [
+                        {
+                          key: "realEnabled",
+                          value: str(selected.realEnabled),
+                          options: ["false", "true"],
+                        },
+                      ])
+                    }
+                  >
+                    Propose market availability
+                  </button>
+                )}
+                {area === "kyc" && (
+                  <button
+                    onClick={() =>
+                      propose("KYC_REVIEW", str(selected.id), [
+                        {
+                          key: "status",
+                          options: [
+                            "MORE_INFO_REQUIRED",
+                            "REJECTED",
+                            "APPROVED",
+                          ],
+                        },
+                        field(
+                          "notes",
+                          undefined,
+                          "Checks performed and findings (minimum 20 characters)",
+                        ),
+                      ])
+                    }
+                  >
+                    Propose identity review
+                  </button>
+                )}
+                {area === "admins" && (
+                  <button
+                    onClick={() =>
+                      propose("ADMIN_ROLE", str(selected.id), [
+                        field(
+                          "roleId",
+                          undefined,
+                          "Role ID from the Roles directory",
+                        ),
+                        { key: "remove", options: ["false", "true"] },
+                      ])
+                    }
+                  >
+                    Propose role assignment
+                  </button>
+                )}
+                {area === "release" && !selected.revokedAt && (
+                  <button
+                    onClick={() =>
+                      command(
+                        "Revoke release sign-off",
+                        `/admin/release/${str(selected.id)}/revoke`,
+                      )
+                    }
+                  >
+                    Revoke approval
+                  </button>
+                )}
+              </div>
+            </section>
           </div>
         )}
         {action && (

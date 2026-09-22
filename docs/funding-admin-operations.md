@@ -68,6 +68,10 @@ Test commands: `RUN_DATABASE_INTEGRATION=true`, isolated `DATABASE_URL`, then `p
 
 ## Production deployment state — September 12, 2026
 
+Historical snapshot only. The current Zettax deployment and Supabase project
+are documented in `infrastructure/native-vps/README.md`; do not use the old
+endpoints or database below for new deployment work.
+
 - API: `https://primevest.metablaast.com`; host Nginx terminates TLS and proxies only to loopback port 4200. Public `/ready` and `/api/docs` return 404.
 - Admin: `https://primevest-admin-bice.vercel.app`; the production CORS and WebAuthn origins match this exact hostname.
 - PostgreSQL: Supabase project `xkghayxoclyqcudpphex`, private `primevest` schema. Fourteen Prisma migrations are applied. The Data API roles have no schema access. The application uses a separate limited login role and TLS certificate verification.

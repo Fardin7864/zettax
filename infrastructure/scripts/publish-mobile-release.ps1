@@ -29,15 +29,19 @@ Push-Location $mobileDir
 try { & $flutter build apk --release } finally { Pop-Location }
 if ($LASTEXITCODE -ne 0) { throw 'Flutter APK build failed.' }
 $apk = Join-Path $mobileDir 'build\app\outputs\flutter-apk\app-release.apk'
+$signer = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Android\Sdk\build-tools') -Filter apksigner.bat -Recurse |
+  Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $signer) { throw 'Android apksigner is unavailable; cannot verify the update signing certificate.' }
+$certificate = (& $signer verify --print-certs $apk | Select-String 'V2 Signer: certificate SHA-256 digest:').ToString()
+if ($LASTEXITCODE -ne 0 -or $certificate -notmatch 'b12fba9db09902b9096f71db09270df24213fd50f20276ef624226352ce00cda') {
+  throw 'APK signing certificate differs from installed Zettax releases; refusing an incompatible update.'
+}
 $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
 $tag = "v$VersionName"
 $assetName = "zettax-$VersionName.apk"
 if ((gh release view $tag --repo Fardin7864/zettax 2>$null)) {
   throw "Release $tag already exists; refusing to overwrite a published APK."
 }
-gh release create $tag "$apk#$assetName" --repo Fardin7864/zettax --target main --title "Zettax $VersionName" --notes $Notes
-if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }
-
 $manifest = [ordered]@{
   versionName = $VersionName
   versionCode = $VersionCode
@@ -45,9 +49,13 @@ $manifest = [ordered]@{
   sha256 = $hash
   notes = $Notes
 } | ConvertTo-Json -Compress
-$tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("zettax-release-$VersionCode")
+$tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("zettax-release-$VersionCode-$([guid]::NewGuid().ToString('N'))")
 New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 try {
+  $releaseApk = Join-Path $tempDir $assetName
+  Copy-Item -LiteralPath $apk -Destination $releaseApk
+  gh release create $tag $releaseApk --repo Fardin7864/zettax --target main --title "Zettax $VersionName" --notes $Notes
+  if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }
   $manifestPath = Join-Path $tempDir 'latest.json'
   [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
   scp $apk "root@zettax-vps:/tmp/zettax-$VersionCode.apk"

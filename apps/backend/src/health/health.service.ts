@@ -32,9 +32,13 @@ export class HealthService {
     }
 
     const results = await Promise.all(
-      Object.entries(checks).map(async ([name, check]) => [name, await check]),
+      Object.entries(checks).map(
+        async ([name, check]) => [name, await check] as const,
+      ),
     );
-    return { process: "up", ...Object.fromEntries(results) };
+    const status: Record<string, DependencyStatus> = { process: "up" };
+    for (const [name, value] of results) status[name] = value;
+    return status;
   }
 
   private isRequired(name: string): boolean {

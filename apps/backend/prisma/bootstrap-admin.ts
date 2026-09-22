@@ -39,75 +39,81 @@ async function main() {
     throw new Error(
       "Set PRIMEVEST_ADMIN_EMAIL and PRIMEVEST_ADMIN_PASSWORD (at least 16 characters).",
     );
-  await prisma.$transaction(async (tx) => {
-    const existing = await tx.adminUser.findUnique({ where: { email } });
-    if (existing)
-      throw new Error(
-        "Administrator already exists; bootstrap never resets credentials.",
-      );
-    const admin = await tx.adminUser.create({
-      data: {
-        email,
-        passwordHash: await argon2.hash(password, { type: argon2.argon2id }),
-      },
-    });
-    const role = await tx.role.upsert({
-      where: { name: roleName },
-      update: {},
-      create: { name: roleName },
-    });
-    for (const key of roleName === "funding-reviewer"
-      ? [
-          "funding.overview",
-          "deposit.read",
-          "deposit.verify",
-          "deposit.approve",
-          "withdrawal.read",
-          "withdrawal.approve",
-          "withdrawal.mark_paid",
-          "evidence.read",
-          "evidence.write",
-        ]
-      : [
-          "trading.configure",
-          "funding.configure",
-          "deposit.read",
-          "deposit.approve",
-          "withdrawal.read",
-          "withdrawal.approve",
-          "withdrawal.mark_paid",
-          "operations.read",
-          "evidence.read",
-          "evidence.write",
-          "deposit.verify",
-          "kyc.configure",
-          "treasury.read",
-          "treasury.submit",
-          "treasury.approve",
-          "release.read",
-          "audit.read",
-          "admin.read",
-          "changes.review",
-          "users.configure",
-          "admin.configure",
-        ]) {
-      const permission = await tx.permission.upsert({
-        where: { key },
-        update: {},
-        create: { key, description: key },
-      });
-      await tx.rolePermission.upsert({
-        where: {
-          roleId_permissionId: { roleId: role.id, permissionId: permission.id },
+  await prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.adminUser.findUnique({ where: { email } });
+      if (existing)
+        throw new Error(
+          "Administrator already exists; bootstrap never resets credentials.",
+        );
+      const admin = await tx.adminUser.create({
+        data: {
+          email,
+          passwordHash: await argon2.hash(password, { type: argon2.argon2id }),
         },
-        update: {},
-        create: { roleId: role.id, permissionId: permission.id },
       });
-    }
-    await tx.adminRoleAssignment.create({
-      data: { adminUserId: admin.id, roleId: role.id },
-    });
-  }, { maxWait: 10_000, timeout: 30_000 });
+      const role = await tx.role.upsert({
+        where: { name: roleName },
+        update: {},
+        create: { name: roleName },
+      });
+      for (const key of roleName === "funding-reviewer"
+        ? [
+            "funding.overview",
+            "deposit.read",
+            "deposit.verify",
+            "deposit.approve",
+            "withdrawal.read",
+            "withdrawal.approve",
+            "withdrawal.mark_paid",
+            "evidence.read",
+            "evidence.write",
+          ]
+        : [
+            "trading.configure",
+            "funding.configure",
+            "deposit.read",
+            "deposit.approve",
+            "withdrawal.read",
+            "withdrawal.approve",
+            "withdrawal.mark_paid",
+            "operations.read",
+            "evidence.read",
+            "evidence.write",
+            "deposit.verify",
+            "kyc.configure",
+            "treasury.read",
+            "treasury.submit",
+            "treasury.approve",
+            "release.read",
+            "audit.read",
+            "admin.read",
+            "changes.review",
+            "users.configure",
+            "admin.configure",
+          ]) {
+        const permission = await tx.permission.upsert({
+          where: { key },
+          update: {},
+          create: { key, description: key },
+        });
+        await tx.rolePermission.upsert({
+          where: {
+            roleId_permissionId: {
+              roleId: role.id,
+              permissionId: permission.id,
+            },
+          },
+          update: {},
+          create: { roleId: role.id, permissionId: permission.id },
+        });
+      }
+      await tx.adminRoleAssignment.create({
+        data: { adminUserId: admin.id, roleId: role.id },
+      });
+    },
+    { maxWait: 10_000, timeout: 30_000 },
+  );
   console.log("Administrator created.");
 }
 main()

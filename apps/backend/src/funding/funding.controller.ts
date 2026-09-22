@@ -39,7 +39,10 @@ import {
 } from "./funding.dto";
 import { fundingError } from "./funding.errors";
 import { FundingService } from "./funding.service";
-import { AdminDepositQueryDto, AdminWithdrawalQueryDto } from "./funding-pagination.dto";
+import {
+  AdminDepositQueryDto,
+  AdminWithdrawalQueryDto,
+} from "./funding-pagination.dto";
 import { AdminGuard } from "../admin/admin.module";
 import { validateIdempotencyKey } from "./funding.validation";
 
@@ -218,7 +221,13 @@ export class FundingController {
     @Query() query: AdminDepositQueryDto,
   ) {
     this.admin(request, "deposit.read");
-    return { data: await this.funding.listDepositsForReview(query.status, query.page, query.pageSize) };
+    return {
+      data: await this.funding.listDepositsForReview(
+        query.status,
+        query.page,
+        query.pageSize,
+      ),
+    };
   }
 
   @Get("admin/payment-methods")
@@ -286,7 +295,13 @@ export class FundingController {
     @Query() query: AdminWithdrawalQueryDto,
   ) {
     this.admin(request, "withdrawal.read");
-    return { data: await this.funding.listWithdrawalsForReview(query.status, query.page, query.pageSize) };
+    return {
+      data: await this.funding.listWithdrawalsForReview(
+        query.status,
+        query.page,
+        query.pageSize,
+      ),
+    };
   }
 
   @Post("admin/withdrawals/:id/transition")
@@ -354,7 +369,13 @@ export class FundingController {
     @Param("id") id: string,
   ) {
     const adminId = this.admin(request, "withdrawal.mark_paid");
-    return { data: await this.funding.completeVirtualWithdrawal(id, adminId, this.auditContext(request)) };
+    return {
+      data: await this.funding.completeVirtualWithdrawal(
+        id,
+        adminId,
+        this.auditContext(request),
+      ),
+    };
   }
 
   private userId(request: UserRequest): string {

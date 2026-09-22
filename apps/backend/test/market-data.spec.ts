@@ -20,17 +20,38 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("display market data", () => {
   it.each(["aapl", "msft", "nvda", "spx", "ndx", "xau-usd", "xag-usd"])(
-    "serves %s as clearly simulated paper candles in sandbox without a licensed provider", async (id) => {
-      const result = await service({ COMPLIANCE_MODE: "SANDBOX" }).candles(id, "1m", 90);
-      expect(result).toMatchObject({ providerId: "PRIMEVEST_SANDBOX", freshness: "SIMULATED",
-        executionPrice: false, executionEligible: false, isSyntheticOhlc: true });
+    "serves %s as clearly simulated paper candles in sandbox without a licensed provider",
+    async (id) => {
+      const result = await service({ COMPLIANCE_MODE: "SANDBOX" }).candles(
+        id,
+        "1m",
+        90,
+      );
+      expect(result).toMatchObject({
+        providerId: "PRIMEVEST_SANDBOX",
+        freshness: "SIMULATED",
+        executionPrice: false,
+        executionEligible: false,
+        isSyntheticOhlc: true,
+      });
       expect(result.candles).toHaveLength(90);
-      expect(result.candles.every((candle) => Number(candle.low) <= Number(candle.close) && Number(candle.close) <= Number(candle.high))).toBe(true);
+      expect(
+        result.candles.every(
+          (candle) =>
+            Number(candle.low) <= Number(candle.close) &&
+            Number(candle.close) <= Number(candle.high),
+        ),
+      ).toBe(true);
     },
   );
   it("does not enable paper candles outside sandbox", async () => {
-    await expect(service({ COMPLIANCE_MODE: "PRODUCTION_APPROVED" }).candles("aapl", "1m", 10))
-      .rejects.toMatchObject({ code: "MARKET_DATA_KEY_REQUIRED" });
+    await expect(
+      service({ COMPLIANCE_MODE: "PRODUCTION_APPROVED" }).candles(
+        "aapl",
+        "1m",
+        10,
+      ),
+    ).rejects.toMatchObject({ code: "MARKET_DATA_KEY_REQUIRED" });
   });
   it("normalizes public crypto candles with non-execution provenance", async () => {
     const fetchMock = vi

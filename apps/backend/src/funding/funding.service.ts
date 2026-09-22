@@ -74,41 +74,79 @@ export class FundingService {
   }
 
   async listDepositsForReview(status?: DepositStatus, page = 1, pageSize = 25) {
-    return this.prisma.$transaction(async (tx) => {
-      const where = status ? { status } : {};
-      const [rows, total] = await Promise.all([
-        tx.depositRequest.findMany({
-          where, skip: (page - 1) * pageSize, take: pageSize,
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          include: {
-            paymentMethod: { select: { type: true, displayName: true } },
-            user: { select: { id: true, email: true, phone: true } },
-          },
-        }),
-        tx.depositRequest.count({ where }),
-      ]);
-      return { items: rows.map((row) => ({ ...row, virtualFunding: this.compliance.isVirtual })),
-        total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30_000, maxWait: 10_000 });
+    return this.prisma.$transaction(
+      async (tx) => {
+        const where = status ? { status } : {};
+        const [rows, total] = await Promise.all([
+          tx.depositRequest.findMany({
+            where,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            include: {
+              paymentMethod: { select: { type: true, displayName: true } },
+              user: { select: { id: true, email: true, phone: true } },
+            },
+          }),
+          tx.depositRequest.count({ where }),
+        ]);
+        return {
+          items: rows.map((row) => ({
+            ...row,
+            virtualFunding: this.compliance.isVirtual,
+          })),
+          total,
+          page,
+          pageSize,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        timeout: 30_000,
+        maxWait: 10_000,
+      },
+    );
   }
 
-  async listWithdrawalsForReview(status?: WithdrawalStatus, page = 1, pageSize = 25) {
-    return this.prisma.$transaction(async (tx) => {
-      const where = status ? { status } : {};
-      const [rows, total] = await Promise.all([
-        tx.withdrawalRequest.findMany({
-          where, skip: (page - 1) * pageSize, take: pageSize,
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          include: {
-            paymentMethod: { select: { type: true, displayName: true } },
-            user: { select: { id: true, email: true, phone: true } },
-          },
-        }),
-        tx.withdrawalRequest.count({ where }),
-      ]);
-      return { items: rows.map((row) => ({ ...row, virtualFunding: this.compliance.isVirtual })),
-        total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30_000, maxWait: 10_000 });
+  async listWithdrawalsForReview(
+    status?: WithdrawalStatus,
+    page = 1,
+    pageSize = 25,
+  ) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const where = status ? { status } : {};
+        const [rows, total] = await Promise.all([
+          tx.withdrawalRequest.findMany({
+            where,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            include: {
+              paymentMethod: { select: { type: true, displayName: true } },
+              user: { select: { id: true, email: true, phone: true } },
+            },
+          }),
+          tx.withdrawalRequest.count({ where }),
+        ]);
+        return {
+          items: rows.map((row) => ({
+            ...row,
+            virtualFunding: this.compliance.isVirtual,
+          })),
+          total,
+          page,
+          pageSize,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        timeout: 30_000,
+        maxWait: 10_000,
+      },
+    );
   }
 
   async listPaymentMethods(feature: "DEPOSITS" | "WITHDRAWALS") {
@@ -814,9 +852,18 @@ export class FundingService {
     );
   }
 
-  completeVirtualWithdrawal(withdrawalId: string, adminId: string, audit: AuditContext) {
-    return this.markWithdrawalPaid(withdrawalId, adminId,
-      { providerTransactionId: `VIRTUAL${withdrawalId.replaceAll("-", "")}` }, audit, true);
+  completeVirtualWithdrawal(
+    withdrawalId: string,
+    adminId: string,
+    audit: AuditContext,
+  ) {
+    return this.markWithdrawalPaid(
+      withdrawalId,
+      adminId,
+      { providerTransactionId: `VIRTUAL${withdrawalId.replaceAll("-", "")}` },
+      audit,
+      true,
+    );
   }
 
   async markWithdrawalPaid(
@@ -828,7 +875,11 @@ export class FundingService {
   ) {
     this.assertFeature("WITHDRAWALS");
     if (completeVirtual && !this.compliance.isVirtual)
-      fundingError("VIRTUAL_FUNDING_REQUIRED", "Direct completion is available only for virtual withdrawals.", HttpStatus.FORBIDDEN);
+      fundingError(
+        "VIRTUAL_FUNDING_REQUIRED",
+        "Direct completion is available only for virtual withdrawals.",
+        HttpStatus.FORBIDDEN,
+      );
     const providerTransactionId = normalizeProviderTransactionId(
       input.providerTransactionId,
     );
@@ -845,7 +896,10 @@ export class FundingService {
             HttpStatus.NOT_FOUND,
           );
         if (withdrawal.status === WithdrawalStatus.PAID) {
-          if (!completeVirtual && withdrawal.providerTransactionId !== providerTransactionId) {
+          if (
+            !completeVirtual &&
+            withdrawal.providerTransactionId !== providerTransactionId
+          ) {
             fundingError(
               "WITHDRAWAL_ALREADY_PROCESSED",
               "Withdrawal was paid with different metadata",
@@ -854,9 +908,18 @@ export class FundingService {
           }
           return withdrawal;
         }
-        if (completeVirtual
-          ? !([WithdrawalStatus.REQUESTED, WithdrawalStatus.UNDER_REVIEW, WithdrawalStatus.APPROVED, WithdrawalStatus.PROCESSING] as WithdrawalStatus[]).includes(withdrawal.status)
-          : withdrawal.status !== WithdrawalStatus.PROCESSING) {
+        if (
+          completeVirtual
+            ? !(
+                [
+                  WithdrawalStatus.REQUESTED,
+                  WithdrawalStatus.UNDER_REVIEW,
+                  WithdrawalStatus.APPROVED,
+                  WithdrawalStatus.PROCESSING,
+                ] as WithdrawalStatus[]
+              ).includes(withdrawal.status)
+            : withdrawal.status !== WithdrawalStatus.PROCESSING
+        ) {
           fundingError(
             "WITHDRAWAL_INVALID_STATE",
             "Withdrawal must be processing before it can be paid",
@@ -934,12 +997,14 @@ export class FundingService {
             providerTransactionId,
             evidenceObjectKey: input.evidenceObjectKey ?? null,
             settlementTransactionId: settlement.id,
-            ...(completeVirtual ? {
-              // Direct virtual completion is not an independent approval.
-              // Preserve any existing review trail; do not fabricate an
-              // approver equal to the reviewer (the database forbids it).
-              processedBy: adminId,
-            } : {}),
+            ...(completeVirtual
+              ? {
+                  // Direct virtual completion is not an independent approval.
+                  // Preserve any existing review trail; do not fabricate an
+                  // approver equal to the reviewer (the database forbids it).
+                  processedBy: adminId,
+                }
+              : {}),
             reviewedBy: adminId,
             reviewedAt: new Date(),
           },

@@ -14,17 +14,16 @@ async function main() {
       ? (input as Record<string, unknown>)
       : {};
   const email =
-    typeof record.email === "string"
-      ? record.email.trim().toLowerCase()
-      : "";
-  const password =
-    typeof record.password === "string" ? record.password : "";
+    typeof record.email === "string" ? record.email.trim().toLowerCase() : "";
+  const password = typeof record.password === "string" ? record.password : "";
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("A valid administrator email is required.");
   }
   if (password.length < 16) {
-    throw new Error("The administrator password must contain at least 16 characters.");
+    throw new Error(
+      "The administrator password must contain at least 16 characters.",
+    );
   }
 
   const passwordHash = await argon2.hash(password, {

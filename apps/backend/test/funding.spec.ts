@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { FundingController } from "../src/funding/funding.controller";
 import { FundingError } from "../src/funding/funding.errors";
 import type { FundingService } from "../src/funding/funding.service";
-import type { EvidenceService } from '../src/funding/evidence.service';
-import type { PrismaService } from '../src/database/prisma.service';
+import type { EvidenceService } from "../src/funding/evidence.service";
+import type { PrismaService } from "../src/database/prisma.service";
 import {
   canReleaseWithdrawal,
   resolveWithdrawalTransition,
@@ -29,7 +29,11 @@ describe("funding input safety", () => {
           ),
         ),
     } as unknown as FundingService;
-    const controller = new FundingController(service,{} as EvidenceService,{} as PrismaService);
+    const controller = new FundingController(
+      service,
+      {} as EvidenceService,
+      {} as PrismaService,
+    );
 
     await expect(controller.listDepositMethods()).rejects.toMatchObject({
       code: "DEPOSIT_DISABLED",

@@ -21,10 +21,12 @@ import 'package:primevest_mobile/l10n/app_localizations.dart';
 void main() => runApp(const ProviderScope(child: PrimeVestApp()));
 
 final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(sessionProvider);
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (_, state) {
       final location = state.matchedLocation;
@@ -93,6 +95,7 @@ class PrimeVestApp extends ConsumerWidget {
       theme: PrimeVestDesignSystem.theme,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       builder: (context, child) => AppUpdateHost(
+          navigatorKey: rootNavigatorKey,
           child: TopNotificationHost(child: child ?? const SizedBox.shrink())),
       routerConfig: ref.watch(routerProvider),
       locale: ref.watch(appLocaleProvider),

@@ -33,7 +33,10 @@ async function bootstrap(): Promise<void> {
   );
   SwaggerModule.setup("api/docs", app, document);
 
-  await app.listen(Number(process.env.BACKEND_PORT ?? 3000), process.env.BACKEND_HOST ?? "0.0.0.0");
+  await app.listen(
+    Number(process.env.BACKEND_PORT ?? 3000),
+    process.env.BACKEND_HOST ?? "0.0.0.0",
+  );
 }
 
 void bootstrap();

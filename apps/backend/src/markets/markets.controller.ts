@@ -14,7 +14,8 @@ export class MarketsController {
 
   @Get("instruments")
   @ApiOperation({
-    summary: "List instruments available from configured display-data providers",
+    summary:
+      "List instruments available from configured display-data providers",
   })
   @ApiQuery({ name: "search", required: false })
   list(@Query() query: MarketInstrumentsQueryDto) {

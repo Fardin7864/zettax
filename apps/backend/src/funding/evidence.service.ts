@@ -159,9 +159,14 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
   ) {
     if (
       !file ||
-      !["DEPOSIT", "WITHDRAWAL", "TREASURY", "RELEASE", "KYC", "PROFILE"].includes(
-        purpose,
-      ) ||
+      ![
+        "DEPOSIT",
+        "WITHDRAWAL",
+        "TREASURY",
+        "RELEASE",
+        "KYC",
+        "PROFILE",
+      ].includes(purpose) ||
       (ownerType === "USER" && !["DEPOSIT", "KYC", "PROFILE"].includes(purpose))
     )
       throw new ApiErrorException(
@@ -197,14 +202,23 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
       );
     let bytes: Buffer;
     try {
-      if (!["DEPOSIT", "PROFILE"].includes(purpose)) await this.scan(file.buffer);
-      bytes = await (purpose === "PROFILE"
-        ? image.rotate().resize(512, 512, { fit: "cover", withoutEnlargement: true })
-        : image.rotate()).png().toBuffer();
+      if (!["DEPOSIT", "PROFILE"].includes(purpose))
+        await this.scan(file.buffer);
+      bytes = await (
+        purpose === "PROFILE"
+          ? image
+              .rotate()
+              .resize(512, 512, { fit: "cover", withoutEnlargement: true })
+          : image.rotate()
+      )
+        .png()
+        .toBuffer();
       if (!["DEPOSIT", "PROFILE"].includes(purpose)) await this.scan(bytes);
     } catch {
       throw new ApiErrorException(
-        ["DEPOSIT", "PROFILE"].includes(purpose) ? "EVIDENCE_INVALID" : "EVIDENCE_SCAN_FAILED",
+        ["DEPOSIT", "PROFILE"].includes(purpose)
+          ? "EVIDENCE_INVALID"
+          : "EVIDENCE_SCAN_FAILED",
         ["DEPOSIT", "PROFILE"].includes(purpose)
           ? "The screenshot could not be decoded. Choose a valid PNG or JPEG."
           : "The image could not be cleared by the scanner. No evidence was accepted.",
