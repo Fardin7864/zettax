@@ -17,7 +17,7 @@ if (-not $pubspec.Contains($expectedVersion)) {
 if ((git -C $repoRoot status --porcelain).Length -ne 0) {
   throw 'Commit and push source changes before publishing an APK.'
 }
-if ((git -C $repoRoot rev-list --count '@{u}') -ne (git -C $repoRoot rev-list --count HEAD)) {
+if ((git -C $repoRoot rev-parse '@{u}') -ne (git -C $repoRoot rev-parse HEAD)) {
   throw 'Push the current commit before publishing an APK.'
 }
 $flutter = 'H:\tools\flutter\bin\flutter.bat'
@@ -50,11 +50,11 @@ New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 try {
   $manifestPath = Join-Path $tempDir 'latest.json'
   [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
-  scp $apk "zettax-vps:/tmp/zettax-$VersionCode.apk"
+  scp $apk "root@zettax-vps:/tmp/zettax-$VersionCode.apk"
   if ($LASTEXITCODE -ne 0) { throw 'APK upload to VPS failed.' }
-  scp $manifestPath "zettax-vps:/tmp/zettax-$VersionCode.json"
+  scp $manifestPath "root@zettax-vps:/tmp/zettax-$VersionCode.json"
   if ($LASTEXITCODE -ne 0) { throw 'Manifest upload to VPS failed.' }
-  ssh zettax-vps "install -d -m 755 /var/www/zettax/downloads /var/www/zettax/updates && install -m 644 /tmp/zettax-$VersionCode.apk /var/www/zettax/downloads/zettax-latest.apk && install -m 644 /tmp/zettax-$VersionCode.json /var/www/zettax/updates/latest.json && rm /tmp/zettax-$VersionCode.apk /tmp/zettax-$VersionCode.json"
+  ssh root@zettax-vps "install -d -m 755 /var/www/zettax/downloads /var/www/zettax/updates && install -m 644 /tmp/zettax-$VersionCode.apk /var/www/zettax/downloads/zettax-latest.apk && install -m 644 /tmp/zettax-$VersionCode.json /var/www/zettax/updates/latest.json && rm /tmp/zettax-$VersionCode.apk /tmp/zettax-$VersionCode.json"
   if ($LASTEXITCODE -ne 0) { throw 'VPS release activation failed.' }
 } finally {
   Remove-Item -LiteralPath $tempDir -Recurse -Force
