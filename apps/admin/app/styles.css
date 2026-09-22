@@ -109,8 +109,169 @@ select:focus-visible {
   gap: 16px;
   margin: 24px 0;
 }
+.ops-metrics article {
+  min-width: 0;
+}
+.ops-metrics article p {
+  color: var(--muted);
+  margin: 0;
+}
+.ops-metrics article strong {
+  display: block;
+  overflow-wrap: anywhere;
+  margin: 14px 0 8px;
+}
+.ops-metrics article small,
+.analytics-grid small {
+  color: var(--muted);
+}
 .ops-metrics article strong {
   font-size: 28px;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.analytics-grid .ops-panel {
+  min-width: 0;
+  margin: 0;
+}
+.analytics-activity {
+  grid-column: 1 / -1;
+}
+.analytics-heading,
+.chart-key {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.analytics-heading p {
+  margin: 0;
+}
+.chart-key {
+  color: var(--muted);
+  font-size: 13px;
+  align-items: center;
+}
+.chart-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chart-key i,
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.key-signups {
+  background: #76a7db;
+}
+.key-trades {
+  background: var(--gold);
+}
+.analytics-chart {
+  width: 100%;
+  margin-top: 18px;
+}
+.analytics-chart svg {
+  width: 100%;
+  height: auto;
+  min-height: 200px;
+  display: block;
+}
+.chart-grid {
+  stroke: #49423a;
+  stroke-width: 1;
+}
+.chart-label {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.chart-signups {
+  stroke: #76a7db;
+}
+.chart-trades {
+  stroke: var(--gold);
+}
+.outcomes-wrap {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.outcomes-pie {
+  width: 175px;
+  height: 175px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.outcomes-pie > span {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  width: 122px;
+  height: 122px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.outcomes-pie strong {
+  font-size: 24px;
+}
+.outcomes-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  min-width: 150px;
+}
+.outcomes-legend li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 0;
+  color: var(--muted);
+}
+.outcomes-legend li strong {
+  color: var(--text);
+  margin-left: auto;
+}
+.funding-bar-row {
+  display: grid;
+  grid-template-columns: 135px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  font-size: 14px;
+}
+.funding-bar-track {
+  height: 14px;
+  border-radius: 7px;
+  background: #39332e;
+  overflow: hidden;
+}
+.funding-bar {
+  height: 100%;
+  border-radius: inherit;
+}
+.funding-bar.deposits {
+  background: var(--gold);
+}
+.funding-bar.withdrawals {
+  background: #76a7db;
 }
 .ops-panel {
   border: 1px solid #3c362e;
@@ -300,6 +461,15 @@ select {
   }
 }
 @media (max-width: 700px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+  .analytics-activity {
+    grid-column: auto;
+  }
+  .funding-bar-row {
+    grid-template-columns: 1fr 2fr 30px;
+  }
   .ops-shell {
     display: block;
   }

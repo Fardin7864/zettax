@@ -106,6 +106,103 @@ class OperationsController {
       }),
     };
   }
+  @Get("analytics") async analytics(@Req() req: AdminRequest) {
+    this.permission(req, "operations.read");
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCDate(start.getUTCDate() - 29);
+    const [users, contracts, deposits, withdrawals, results, activity] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.timedContract.aggregate({
+          _count: { _all: true },
+          _sum: { investmentAmount: true },
+        }),
+        this.prisma.depositRequest.aggregate({
+          where: { status: "CREDITED" },
+          _count: { _all: true },
+          _sum: { amount: true },
+        }),
+        this.prisma.withdrawalRequest.aggregate({
+          where: { status: "PAID" },
+          _count: { _all: true },
+          _sum: { amount: true },
+        }),
+        this.prisma.timedContract.groupBy({
+          by: ["result"],
+          _count: { _all: true },
+        }),
+        this.prisma.$queryRaw<
+          Array<{
+            day: string;
+            signups: number;
+            trades: number;
+            deposits: number;
+            withdrawals: number;
+          }>
+        >`
+          SELECT to_char(event_day, 'YYYY-MM-DD') AS day,
+                 SUM(signups)::integer AS signups,
+                 SUM(trades)::integer AS trades,
+                 SUM(deposits)::integer AS deposits,
+                 SUM(withdrawals)::integer AS withdrawals
+          FROM (
+            SELECT (created_at AT TIME ZONE 'UTC')::date AS event_day,
+                   count(*)::integer AS signups, 0 AS trades, 0 AS deposits, 0 AS withdrawals
+            FROM primevest.users WHERE created_at >= ${start} GROUP BY 1
+            UNION ALL
+            SELECT (entry_timestamp AT TIME ZONE 'UTC')::date,
+                   0, count(*)::integer, 0, 0
+            FROM primevest.timed_contracts WHERE entry_timestamp >= ${start} GROUP BY 1
+            UNION ALL
+            SELECT (updated_at AT TIME ZONE 'UTC')::date,
+                   0, 0, count(*)::integer, 0
+            FROM primevest.deposit_requests
+            WHERE status = 'CREDITED' AND updated_at >= ${start} GROUP BY 1
+            UNION ALL
+            SELECT (updated_at AT TIME ZONE 'UTC')::date,
+                   0, 0, 0, count(*)::integer
+            FROM primevest.withdrawal_requests
+            WHERE status = 'PAID' AND updated_at >= ${start} GROUP BY 1
+          ) AS events
+          GROUP BY event_day ORDER BY event_day
+        `,
+      ]);
+    const byDay = new Map(activity.map((row) => [row.day, row]));
+    const daily = Array.from({ length: 30 }, (_, index) => {
+      const date = new Date(start);
+      date.setUTCDate(date.getUTCDate() + index);
+      const day = date.toISOString().slice(0, 10);
+      return (
+        byDay.get(day) ?? {
+          day,
+          signups: 0,
+          trades: 0,
+          deposits: 0,
+          withdrawals: 0,
+        }
+      );
+    });
+    return {
+      users,
+      trades: contracts._count._all,
+      tradeVolume: contracts._sum.investmentAmount?.toString() ?? "0",
+      creditedDeposits: {
+        count: deposits._count._all,
+        amount: deposits._sum.amount?.toString() ?? "0",
+      },
+      paidWithdrawals: {
+        count: withdrawals._count._all,
+        amount: withdrawals._sum.amount?.toString() ?? "0",
+      },
+      tradeResults: results.map((row) => ({
+        result: row.result,
+        count: row._count._all,
+      })),
+      daily,
+      timezone: "UTC",
+    };
+  }
   @Get("records/:area") async records(
     @Req() req: AdminRequest,
     @Param("area") area: string,

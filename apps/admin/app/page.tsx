@@ -6,6 +6,21 @@ import {
   startAuthentication,
 } from "@simplewebauthn/browser";
 type Row = Record<string, unknown>;
+type Analytics = {
+  users: number;
+  trades: number;
+  tradeVolume: string;
+  creditedDeposits: { count: number; amount: string };
+  paidWithdrawals: { count: number; amount: string };
+  tradeResults: { result: string; count: number }[];
+  daily: {
+    day: string;
+    signups: number;
+    trades: number;
+    deposits: number;
+    withdrawals: number;
+  }[];
+};
 type Field = {
   key: string;
   label?: string;
@@ -69,6 +84,139 @@ const isPendingFunding = (area: string, status: unknown) =>
       ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING"].includes(
         String(status),
       );
+const number = (value: number) => new Intl.NumberFormat("en-US").format(value);
+const money = (value: string) =>
+  `৳${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(value))}`;
+const outcomeColors: Record<string, string> = {
+  WIN: "#e7ae3f",
+  LOSS: "#df6d65",
+  DRAW: "#76a7db",
+  VOID: "#a79b8c",
+  PENDING: "#7bc7a3",
+};
+
+function ActivityChart({ daily }: { daily: Analytics["daily"] }) {
+  const width = 720;
+  const height = 220;
+  const left = 40;
+  const right = 12;
+  const top = 14;
+  const bottom = 28;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const max = Math.max(1, ...daily.flatMap((day) => [day.signups, day.trades]));
+  const points = (key: "signups" | "trades") =>
+    daily
+      .map(
+        (day, index) =>
+          `${left + (index * plotWidth) / Math.max(1, daily.length - 1)},${top + plotHeight * (1 - day[key] / max)}`,
+      )
+      .join(" ");
+  return (
+    <div
+      className="analytics-chart"
+      role="img"
+      aria-label="Daily customer registrations and trades over the last 30 days"
+    >
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        {[0, 0.5, 1].map((fraction) => (
+          <g key={fraction}>
+            <line
+              x1={left}
+              x2={width - right}
+              y1={top + plotHeight * fraction}
+              y2={top + plotHeight * fraction}
+              className="chart-grid"
+            />
+            <text
+              x={left - 9}
+              y={top + plotHeight * fraction + 4}
+              textAnchor="end"
+              className="chart-label"
+            >
+              {number(Math.round(max * (1 - fraction)))}
+            </text>
+          </g>
+        ))}
+        <polyline
+          points={points("signups")}
+          className="chart-line chart-signups"
+        />
+        <polyline
+          points={points("trades")}
+          className="chart-line chart-trades"
+        />
+        {daily.map((day, index) => (
+          <circle
+            key={day.day}
+            cx={left + (index * plotWidth) / Math.max(1, daily.length - 1)}
+            cy={top + plotHeight * (1 - day.trades / max)}
+            r="8"
+            fill="transparent"
+          >
+            <title>{`${day.day}: ${day.trades} trades, ${day.signups} new customers`}</title>
+          </circle>
+        ))}
+        <text x={left} y={height - 5} className="chart-label">
+          {daily[0]?.day.slice(5)}
+        </text>
+        <text
+          x={width - right}
+          y={height - 5}
+          textAnchor="end"
+          className="chart-label"
+        >
+          {daily[daily.length - 1]?.day.slice(5)}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function OutcomesChart({ results }: { results: Analytics["tradeResults"] }) {
+  const total = results.reduce((sum, row) => sum + row.count, 0);
+  let offset = 0;
+  const slices = results.map((row) => {
+    const start = offset;
+    offset += total ? (row.count / total) * 100 : 0;
+    return `${outcomeColors[row.result] ?? "#b7a88c"} ${start}% ${offset}%`;
+  });
+  return (
+    <div className="outcomes-wrap">
+      <div
+        className="outcomes-pie"
+        role="img"
+        aria-label={`Trade outcomes: ${results.map((row) => `${row.result} ${row.count}`).join(", ") || "no trades"}`}
+        style={{
+          background: total
+            ? `conic-gradient(${slices.join(", ")})`
+            : "#39332e",
+        }}
+      >
+        <span>
+          <strong>{number(total)}</strong>
+          <small>trades</small>
+        </span>
+      </div>
+      <ul className="outcomes-legend">
+        {results.length ? (
+          results.map((row) => (
+            <li key={row.result}>
+              <span
+                className="legend-dot"
+                style={{ background: outcomeColors[row.result] ?? "#b7a88c" }}
+              />
+              {title(row.result)}
+              <strong>{number(row.count)}</strong>
+            </li>
+          ))
+        ) : (
+          <li>No trades yet</li>
+        )}
+      </ul>
+    </div>
+  );
+}
 
 export default function Operations() {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -81,6 +229,7 @@ export default function Operations() {
     [me, setMe] = useState<Row>({}),
     [area, setArea] = useState("overview"),
     [data, setData] = useState<Row | Row[] | null>(null),
+    [analytics, setAnalytics] = useState<Analytics | null>(null),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [page, setPage] = useState(1),
@@ -243,13 +392,22 @@ export default function Operations() {
         : area === "trading"
           ? "/admin/trading-settings"
           : `/admin/records/${area}?page=${page}&search=${encodeURIComponent(search)}`;
-      const result = await request(
-        ["deposits", "withdrawals"].includes(area)
-          ? `${path}?page=${page}&pageSize=${pageSize}${status ? `&status=${encodeURIComponent(status)}` : ""}`
-          : path,
-      );
+      const [result, dashboard] = await Promise.all([
+        request(
+          ["deposits", "withdrawals"].includes(area)
+            ? `${path}?page=${page}&pageSize=${pageSize}${status ? `&status=${encodeURIComponent(status)}` : ""}`
+            : path,
+        ),
+        area === "overview" &&
+        ((me.permissions as string[] | undefined) ?? []).includes(
+          "operations.read",
+        )
+          ? request("/admin/analytics")
+          : Promise.resolve(null),
+      ]);
       if (version === listVersion.current) {
         setData(result);
+        if (area === "overview") setAnalytics(dashboard as Analytics | null);
         if (
           ["deposits", "withdrawals"].includes(area) &&
           !Array.isArray(result) &&
@@ -855,37 +1013,136 @@ export default function Operations() {
         {area === "overview" && data && !Array.isArray(data) && (
           <>
             <div className="ops-metrics">
-              {[
-                ["Customers", data.users],
-                ["Deposits to review", data.pendingDeposits],
-                ["Withdrawals in progress", data.pendingWithdrawals],
-                ["Runtime mode", (data.config as Row)?.complianceMode],
-              ].map(([label, value]) => (
-                <article key={str(label)}>
-                  <p>{str(label)}</p>
-                  <strong>{str(value)}</strong>
+              {analytics ? (
+                <>
+                  <article>
+                    <p>Customers</p>
+                    <strong>{number(analytics.users)}</strong>
+                    <small>All registered accounts</small>
+                  </article>
+                  <article>
+                    <p>Trades placed</p>
+                    <strong>{number(analytics.trades)}</strong>
+                    <small>All time</small>
+                  </article>
+                  <article>
+                    <p>Trade volume</p>
+                    <strong>{money(analytics.tradeVolume)}</strong>
+                    <small>Virtual BDT staked</small>
+                  </article>
+                  <article>
+                    <p>Credited deposits</p>
+                    <strong>{money(analytics.creditedDeposits.amount)}</strong>
+                    <small>
+                      {number(analytics.creditedDeposits.count)} completed
+                      requests
+                    </small>
+                  </article>
+                  <article>
+                    <p>Paid withdrawals</p>
+                    <strong>{money(analytics.paidWithdrawals.amount)}</strong>
+                    <small>
+                      {number(analytics.paidWithdrawals.count)} completed
+                      requests
+                    </small>
+                  </article>
+                  <article>
+                    <p>New customers</p>
+                    <strong>
+                      {number(
+                        analytics.daily.reduce(
+                          (sum, day) => sum + day.signups,
+                          0,
+                        ),
+                      )}
+                    </strong>
+                    <small>Last 30 days</small>
+                  </article>
+                </>
+              ) : (
+                <article>
+                  <p>Customers</p>
+                  <strong>{str(data.users)}</strong>
                 </article>
-              ))}
+              )}
+              <article>
+                <p>Deposits to review</p>
+                <strong>{str(data.pendingDeposits)}</strong>
+                <small>Awaiting admin action</small>
+              </article>
+              <article>
+                <p>Withdrawals in progress</p>
+                <strong>{str(data.pendingWithdrawals)}</strong>
+                <small>Not yet completed</small>
+              </article>
             </div>
-            <section className="ops-panel">
-              <h2>Release readiness</h2>
-              <p>
-                Missing sign-offs prevent real-money admission. Review the
-                evidence behind each responsibility.
-              </p>
-              <div className="gate-list">
-                {(((data.release as Row)?.missing as string[]) ?? []).map(
-                  (g) => (
-                    <span key={g} className="blocked">
-                      {title(g)} · pending
-                    </span>
-                  ),
-                )}
+            {analytics && (
+              <div className="analytics-grid">
+                <section className="ops-panel analytics-activity">
+                  <div className="analytics-heading">
+                    <div>
+                      <h2>Platform activity</h2>
+                      <p>Daily registrations and trades · last 30 days · UTC</p>
+                    </div>
+                    <div className="chart-key">
+                      <span>
+                        <i className="key-signups" />
+                        Customers
+                      </span>
+                      <span>
+                        <i className="key-trades" />
+                        Trades
+                      </span>
+                    </div>
+                  </div>
+                  <ActivityChart daily={analytics.daily} />
+                </section>
+                <section className="ops-panel">
+                  <h2>Trade outcomes</h2>
+                  <p>All-time contract results</p>
+                  <OutcomesChart results={analytics.tradeResults} />
+                </section>
+                <section className="ops-panel">
+                  <h2>Funding activity</h2>
+                  <p>Completed requests in the last 30 days · UTC</p>
+                  {(
+                    [
+                      ["Credited deposits", "deposits"],
+                      ["Paid withdrawals", "withdrawals"],
+                    ] as const
+                  ).map(([label, key]) => {
+                    const count = analytics.daily.reduce(
+                      (sum, day) => sum + day[key],
+                      0,
+                    );
+                    const otherKey =
+                      key === "deposits" ? "withdrawals" : "deposits";
+                    const otherCount = analytics.daily.reduce(
+                      (sum, day) => sum + day[otherKey],
+                      0,
+                    );
+                    return (
+                      <div className="funding-bar-row" key={key}>
+                        <span>{label}</span>
+                        <div className="funding-bar-track">
+                          <div
+                            className={`funding-bar ${key}`}
+                            style={{
+                              width: `${(count / Math.max(1, count, otherCount)) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <strong>{number(count)}</strong>
+                      </div>
+                    );
+                  })}
+                  <small>
+                    Counts reflect credited deposits and paid withdrawals, not
+                    pending requests.
+                  </small>
+                </section>
               </div>
-              <button onClick={() => setArea("release")}>
-                Review checklist
-              </button>
-            </section>
+            )}
           </>
         )}
         {["treasury", "release"].includes(area) &&
