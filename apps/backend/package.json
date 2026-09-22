@@ -1,0 +1,62 @@
+{
+  "name": "@primevest/backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch --entryFile apps/backend/src/main",
+    "start:prod": "node dist/apps/backend/src/main.js",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "prisma db seed"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.12",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.12",
+    "@nestjs/jwt": "^12.0.1",
+    "@nestjs/platform-express": "^11.0.12",
+    "@nestjs/platform-socket.io": "^11.1.6",
+    "@nestjs/swagger": "^11.1.0",
+    "@nestjs/throttler": "^6.5.0",
+    "@nestjs/websockets": "^11.1.6",
+    "@primevest/shared-types": "workspace:*",
+    "@prisma/client": "^6.19.3",
+    "@simplewebauthn/server": "^14.0.1",
+    "argon2": "^0.45.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "google-auth-library": "^10.3.0",
+    "helmet": "^8.1.0",
+    "minio": "^8.0.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.35.4",
+    "socket.io": "^4.8.1",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@nestjs/cli": "^11.0.5",
+    "@nestjs/testing": "^11.0.12",
+    "@types/express": "^5.0.1",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.13.10",
+    "@types/ws": "^8.18.1",
+    "eslint": "^9.22.0",
+    "prisma": "^6.19.3",
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0",
+    "vitest": "^3.0.8"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=PrimeVest production services
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/srv/primevest/current
+ExecStart=/usr/bin/docker compose --env-file /srv/primevest/.env -f docker-compose.vps-supabase.yml up -d
+ExecStop=/usr/bin/docker compose --env-file /srv/primevest/.env -f docker-compose.vps-supabase.yml stop
+TimeoutStartSec=600
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

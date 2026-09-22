@@ -1,0 +1,221 @@
+x-production-logging: &production-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  volume-init:
+    image: alpine:3.22
+    command:
+      - /bin/sh
+      - -eu
+      - -c
+      - chown 70:70 /volumes/postgres && chown 999:1000 /volumes/redis && chown 1000:1000 /volumes/minio
+    volumes:
+      - postgres_data:/volumes/postgres
+      - redis_data:/volumes/redis
+      - minio_data:/volumes/minio
+    network_mode: none
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER]
+    pids_limit: 32
+    mem_limit: 64m
+    cpus: 0.25
+    restart: "no"
+    logging: *production-logging
+
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    networks: [data]
+    user: "70:70"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /var/run/postgresql:rw,noexec,nosuid,uid=70,gid=70,size=16m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    logging: *production-logging
+
+  redis:
+    ports: !reset []
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    networks: [data]
+    user: "999:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG',
+        ]
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    logging: *production-logging
+
+  minio:
+    ports: !reset []
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    networks: [data]
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *production-logging
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+
+  backend:
+    ports: !reset []
+    command:
+      - /bin/sh
+      - -eu
+      - -c
+      - until nc -z postgres 5432; do sleep 2; done; cd /workspace/apps/backend && ./node_modules/.bin/prisma migrate deploy && exec node dist/apps/backend/src/main.js
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL with authentication is required}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-30}
+      AUTH_MAX_FAILED_LOGINS: ${AUTH_MAX_FAILED_LOGINS:-5}
+      AUTH_LOCKOUT_MINUTES: ${AUTH_LOCKOUT_MINUTES:-15}
+      GOOGLE_WEB_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:-}
+      COMPLIANCE_MODE: ${COMPLIANCE_MODE:-DEMO_ONLY}
+      ENABLE_REAL_TRADING: ${ENABLE_REAL_TRADING:-false}
+      ENABLE_CRYPTO_TRADING: ${ENABLE_CRYPTO_TRADING:-false}
+      ENABLE_FOREX_TRADING: ${ENABLE_FOREX_TRADING:-false}
+      ENABLE_STOCK_TRADING: ${ENABLE_STOCK_TRADING:-false}
+      ENABLE_COMMODITY_TRADING: ${ENABLE_COMMODITY_TRADING:-false}
+      ENABLE_INDEX_TRADING: ${ENABLE_INDEX_TRADING:-false}
+      ENABLE_TIMED_TRADING: ${ENABLE_TIMED_TRADING:-true}
+      ENABLE_DEPOSITS: ${ENABLE_DEPOSITS:-false}
+      ENABLE_WITHDRAWALS: ${ENABLE_WITHDRAWALS:-false}
+      EXECUTION_PROVIDER: ${EXECUTION_PROVIDER:-MOCK}
+      PRODUCTION_APPROVAL_REFERENCE: ${PRODUCTION_APPROVAL_REFERENCE:-}
+      EXECUTION_PROVIDER_APPROVAL_REFERENCE: ${EXECUTION_PROVIDER_APPROVAL_REFERENCE:-}
+      TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
+      TWELVE_DATA_DISPLAY_LICENSE_APPROVED: ${TWELVE_DATA_DISPLAY_LICENSE_APPROVED:-false}
+      TWELVE_DATA_REQUESTS_PER_MINUTE: ${TWELVE_DATA_REQUESTS_PER_MINUTE:-8}
+      MARKET_DATA_CACHE_MAX_ENTRIES: ${MARKET_DATA_CACHE_MAX_ENTRIES:-500}
+    networks: [app, data]
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *production-logging
+
+  admin:
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+    networks: [app]
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/apps/admin/.next/cache:rw,noexec,nosuid,uid=1000,gid=1000,size=64m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 0.5
+    logging: *production-logging
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:8080"
+      - "443:8443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/conf.d/primevest.conf:/etc/nginx/templates/primevest.conf.template:ro
+      - ./infrastructure/nginx/certs:/etc/letsencrypt:ro
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}
+      ADMIN_ALLOW_CIDR: ${ADMIN_ALLOW_CIDR:?ADMIN_ALLOW_CIDR is required}
+      TLS_CERTIFICATE_PATH: ${TLS_CERTIFICATE_PATH:?TLS_CERTIFICATE_PATH is required}
+      TLS_CERTIFICATE_KEY_PATH: ${TLS_CERTIFICATE_KEY_PATH:?TLS_CERTIFICATE_KEY_PATH is required}
+    networks: [edge, app]
+    depends_on:
+      backend:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=101,gid=101,size=64m
+      - /var/cache/nginx:rw,noexec,nosuid,uid=101,gid=101,size=64m
+      - /var/run:rw,noexec,nosuid,uid=101,gid=101,size=16m
+      - /etc/nginx/conf.d:rw,noexec,nosuid,uid=101,gid=101,size=16m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 256m
+    cpus: 0.5
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *production-logging
+
+networks:
+  edge:
+  app:
+  data:
+    internal: true

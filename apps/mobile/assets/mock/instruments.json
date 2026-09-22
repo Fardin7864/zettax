@@ -1,0 +1,164 @@
+[
+  {
+    "id": "btc-usd",
+    "symbol": "BTC/USD",
+    "name": "Bitcoin",
+    "assetClass": "Crypto",
+    "price": 111420.25,
+    "changePercent": 2.84,
+    "precision": 2
+  },
+  {
+    "id": "eth-usd",
+    "symbol": "ETH/USD",
+    "name": "Ethereum",
+    "assetClass": "Crypto",
+    "price": 4328.18,
+    "changePercent": 1.62,
+    "precision": 2
+  },
+  {
+    "id": "sol-usd",
+    "symbol": "SOL/USD",
+    "name": "Solana",
+    "assetClass": "Crypto",
+    "price": 218.42,
+    "changePercent": -0.74,
+    "precision": 2
+  },
+  {
+    "id": "xrp-usd",
+    "symbol": "XRP/USD",
+    "name": "XRP",
+    "assetClass": "Crypto",
+    "price": 3.2145,
+    "changePercent": 3.18,
+    "precision": 4
+  },
+  {
+    "id": "eur-usd",
+    "symbol": "EUR/USD",
+    "name": "Euro / US Dollar",
+    "assetClass": "Forex",
+    "price": 1.16842,
+    "changePercent": 0.31,
+    "precision": 5
+  },
+  {
+    "id": "gbp-usd",
+    "symbol": "GBP/USD",
+    "name": "British Pound / US Dollar",
+    "assetClass": "Forex",
+    "price": 1.35281,
+    "changePercent": -0.18,
+    "precision": 5
+  },
+  {
+    "id": "usd-jpy",
+    "symbol": "USD/JPY",
+    "name": "US Dollar / Japanese Yen",
+    "assetClass": "Forex",
+    "price": 147.382,
+    "changePercent": 0.46,
+    "precision": 3
+  },
+  {
+    "id": "aud-usd",
+    "symbol": "AUD/USD",
+    "name": "Australian Dollar / US Dollar",
+    "assetClass": "Forex",
+    "price": 0.66218,
+    "changePercent": 0.12,
+    "precision": 5
+  },
+  {
+    "id": "aapl",
+    "symbol": "AAPL",
+    "name": "Apple",
+    "assetClass": "Stocks",
+    "price": 238.47,
+    "changePercent": 1.08,
+    "precision": 2
+  },
+  {
+    "id": "msft",
+    "symbol": "MSFT",
+    "name": "Microsoft",
+    "assetClass": "Stocks",
+    "price": 512.63,
+    "changePercent": 0.67,
+    "precision": 2
+  },
+  {
+    "id": "nvda",
+    "symbol": "NVDA",
+    "name": "NVIDIA",
+    "assetClass": "Stocks",
+    "price": 184.92,
+    "changePercent": -1.21,
+    "precision": 2
+  },
+  {
+    "id": "tsla",
+    "symbol": "TSLA",
+    "name": "Tesla",
+    "assetClass": "Stocks",
+    "price": 397.16,
+    "changePercent": 2.09,
+    "precision": 2
+  },
+  {
+    "id": "spx",
+    "symbol": "S&P 500",
+    "name": "S&P 500 Index",
+    "assetClass": "Indices",
+    "price": 6514.28,
+    "changePercent": 0.54,
+    "precision": 2
+  },
+  {
+    "id": "ndx",
+    "symbol": "NASDAQ 100",
+    "name": "NASDAQ 100 Index",
+    "assetClass": "Indices",
+    "price": 23908.41,
+    "changePercent": 0.83,
+    "precision": 2
+  },
+  {
+    "id": "dax",
+    "symbol": "DAX",
+    "name": "DAX Index",
+    "assetClass": "Indices",
+    "price": 23718.36,
+    "changePercent": -0.27,
+    "precision": 2
+  },
+  {
+    "id": "xau-usd",
+    "symbol": "XAU/USD",
+    "name": "Gold",
+    "assetClass": "Commodities",
+    "price": 3642.17,
+    "changePercent": 1.31,
+    "precision": 2
+  },
+  {
+    "id": "xag-usd",
+    "symbol": "XAG/USD",
+    "name": "Silver",
+    "assetClass": "Commodities",
+    "price": 41.382,
+    "changePercent": 0.91,
+    "precision": 3
+  },
+  {
+    "id": "oil-usd",
+    "symbol": "WTI/USD",
+    "name": "Crude Oil",
+    "assetClass": "Commodities",
+    "price": 63.84,
+    "changePercent": -0.63,
+    "precision": 2
+  }
+]

@@ -1,0 +1,168 @@
+name: primevest
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-primevest}
+      POSTGRES_USER: ${POSTGRES_USER:-primevest}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-primevest-local-only}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-primevest} -d ${POSTGRES_DB:-primevest}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-primevest-local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-primevest-minio-local}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:stable
+    volumes:
+      - clamav_data:/var/lib/clamav
+    mem_limit: 2g
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    environment: &backend-environment
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-primevest}:${POSTGRES_PASSWORD:-primevest-local-only}@postgres:5432/${POSTGRES_DB:-primevest}?schema=public
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_BUCKET: ${MINIO_BUCKET:-primevest-private}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-primevest-local}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-primevest-minio-local}
+      MINIO_EVIDENCE_BUCKET: primevest-evidence
+      EVIDENCE_ENCRYPTION_KEY_FILE: /run/secrets/evidence.key
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:3001}
+      RELEASE_VERSION: ${RELEASE_VERSION:-local-unapproved}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      COMPLIANCE_MODE: ${COMPLIANCE_MODE:-DEMO_ONLY}
+      ENABLE_REAL_TRADING: ${ENABLE_REAL_TRADING:-false}
+      ENABLE_CRYPTO_TRADING: ${ENABLE_CRYPTO_TRADING:-false}
+      ENABLE_FOREX_TRADING: ${ENABLE_FOREX_TRADING:-false}
+      ENABLE_STOCK_TRADING: ${ENABLE_STOCK_TRADING:-false}
+      ENABLE_COMMODITY_TRADING: ${ENABLE_COMMODITY_TRADING:-false}
+      ENABLE_INDEX_TRADING: ${ENABLE_INDEX_TRADING:-false}
+      ENABLE_DEPOSITS: ${ENABLE_DEPOSITS:-false}
+      ENABLE_WITHDRAWALS: ${ENABLE_WITHDRAWALS:-false}
+      ENABLE_TIMED_TRADING: ${ENABLE_TIMED_TRADING:-true}
+      EXECUTION_PROVIDER: ${EXECUTION_PROVIDER:-MOCK}
+      TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
+      TWELVE_DATA_DISPLAY_LICENSE_APPROVED: ${TWELVE_DATA_DISPLAY_LICENSE_APPROVED:-false}
+      TWELVE_DATA_REQUESTS_PER_MINUTE: ${TWELVE_DATA_REQUESTS_PER_MINUTE:-8}
+      MARKET_DATA_CACHE_MAX_ENTRIES: ${MARKET_DATA_CACHE_MAX_ENTRIES:-500}
+      DEMO_INITIAL_BALANCE_BDT: ${DEMO_INITIAL_BALANCE_BDT:-100000.00}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-development-access-secret-32chars}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-local-development-refresh-secret-32chars}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-30}
+      AUTH_MAX_FAILED_LOGINS: ${AUTH_MAX_FAILED_LOGINS:-5}
+      AUTH_LOCKOUT_MINUTES: ${AUTH_LOCKOUT_MINUTES:-15}
+      GOOGLE_WEB_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infrastructure/secrets/evidence.key:/run/secrets/evidence.key:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 180s
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -c
+      - until nc -z postgres 5432; do sleep 2; done; cd /workspace/apps/backend && ./node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/tsx prisma/seed.ts && exec node dist/apps/backend/src/main.js
+
+  financial-worker:
+    image: primevest-backend
+    environment: *backend-environment
+    command:
+      [
+        "node",
+        "/workspace/apps/backend/dist/apps/backend/src/workers/financial-worker.js",
+      ]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/admin.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
+    ports:
+      - "3001:3001"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  clamav_data:

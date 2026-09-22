@@ -1,0 +1,16 @@
+{
+  "appName": "Zettax",
+  "welcomeTitle": "Learn markets with clarity",
+  "welcomeBody": "Explore simulated markets and practice trading with virtual funds.",
+  "tryDemo": "Try Demo",
+  "createAccount": "Create Account",
+  "login": "Log in",
+  "demo": "DEMO",
+  "simulatedData": "Simulated market data",
+  "home": "Home",
+  "markets": "Markets",
+  "trade": "Trade",
+  "portfolio": "Portfolio",
+  "profile": "Profile",
+  "availableBalance": "Available balance"
+}

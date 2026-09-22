@@ -1,0 +1,1120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountMode {
+  DEMO
+  REAL
+}
+
+enum AccountStatus {
+  ACTIVE
+  RESTRICTED
+  SUSPENDED
+  CLOSED
+}
+
+enum AssetClass {
+  CRYPTO
+  FOREX
+  STOCK
+  INDEX
+  COMMODITY
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP
+  STOP_LIMIT
+}
+
+enum OrderStatus {
+  CREATED
+  PENDING
+  ACCEPTED
+  PARTIALLY_FILLED
+  FILLED
+  CANCELLED
+  REJECTED
+  EXPIRED
+}
+
+enum PositionStatus {
+  OPEN
+  CLOSED
+}
+
+enum ContractDirection {
+  UP
+  DOWN
+}
+
+enum ContractResult {
+  PENDING
+  WIN
+  LOSS
+  DRAW
+  VOID
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUIRED
+}
+
+enum KycDocumentType {
+  NID_FRONT
+  NID_BACK
+  PASSPORT
+  SELFIE
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  FAILED
+}
+
+enum DepositStatus {
+  CREATED
+  PENDING_REVIEW
+  APPROVED
+  CREDITED
+  REJECTED
+  CANCELLED
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  PROCESSING
+  PAID
+  REJECTED
+  FAILED
+  CANCELLED
+}
+
+enum LedgerTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRADE
+  TRADE_SETTLEMENT
+  COMMISSION
+  SPREAD_FEE
+  SUBSCRIPTION
+  DEPOSIT_FEE
+  WITHDRAWAL_FEE
+  ADJUSTMENT
+  REVERSAL
+  DEMO_FUNDING
+  DEMO_RESET
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum PaymentMethodType {
+  BKASH
+  NAGAD
+  ROCKET
+}
+
+enum PaymentAccountType {
+  PERSONAL
+  AGENT
+}
+
+enum ActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum IdempotencyStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RiskStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum LegalDocumentType {
+  TERMS
+  PRIVACY
+  RISK_DISCLOSURE
+}
+
+model User {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  email              String                   @unique @db.VarChar(320)
+  phone              String?                  @unique @db.VarChar(20)
+  passwordHash       String?                  @map("password_hash")
+  emailVerifiedAt    DateTime?                @map("email_verified_at")
+  phoneVerifiedAt    DateTime?                @map("phone_verified_at")
+  loginEnabled       Boolean                  @default(true) @map("login_enabled")
+  tradingEnabled     Boolean                  @default(true) @map("trading_enabled")
+  depositEnabled     Boolean                  @default(true) @map("deposit_enabled")
+  withdrawalEnabled  Boolean                  @default(true) @map("withdrawal_enabled")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  profile            UserProfile?
+  security           UserSecurity?
+  sessions           UserSession[]
+  devices            UserDevice[]
+  accounts           Account[]
+  watchlists         Watchlist[]
+  kycCases           KycCase[]
+  deposits           DepositRequest[]
+  withdrawals        WithdrawalRequest[]
+  notifications      Notification[]
+  notificationPrefs  NotificationPreference[]
+  priceAlerts        PriceAlert[]
+  riskFlags          RiskFlag[]
+  legalAcceptances   LegalAcceptance[]
+  auditLogs          AuditLog[]               @relation("UserAuditActor")
+  orders             Order[]
+  timedContracts     TimedContract[]
+  subscriptions      Subscription[]
+  accountEventStream AccountEventStream?
+  accountEvents      AccountEvent[]
+  externalIdentities ExternalIdentity[]
+
+  @@map("users")
+}
+
+enum IdentityProvider {
+  GOOGLE
+}
+
+model ExternalIdentity {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  provider        IdentityProvider
+  providerSubject String           @map("provider_subject") @db.VarChar(255)
+  providerEmail   String?          @map("provider_email") @db.VarChar(320)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("external_identities")
+}
+
+model AccountEventStream {
+  userId       String   @id @map("user_id") @db.Uuid
+  lastSequence BigInt   @default(0) @map("last_sequence")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_event_streams")
+}
+
+model AccountEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  sequence   BigInt
+  eventType  String   @map("event_type") @db.VarChar(160)
+  payload    Json
+  occurredAt DateTime @default(now()) @map("occurred_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sequence])
+  @@index([userId, occurredAt])
+  @@map("account_events")
+}
+
+model UserProfile {
+  userId          String   @id @map("user_id") @db.Uuid
+  fullName        String   @map("full_name")
+  dateOfBirth     DateTime @map("date_of_birth") @db.Date
+  gender          String?
+  currentAddress  String   @map("current_address")
+  district        String
+  country         String   @default("Bangladesh")
+  avatarObjectKey String?  @map("avatar_object_key")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSecurity {
+  userId              String    @id @map("user_id") @db.Uuid
+  totpEnabled         Boolean   @default(false) @map("totp_enabled")
+  encryptedTotpSecret String?   @map("encrypted_totp_secret")
+  passwordChangedAt   DateTime? @map("password_changed_at")
+  failedLoginCount    Int       @default(0) @map("failed_login_count")
+  lockedUntil         DateTime? @map("locked_until")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_security")
+}
+
+model UserDevice {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  fingerprint String
+  name        String?
+  platform    String?
+  lastSeenAt  DateTime      @default(now()) @map("last_seen_at")
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions    UserSession[]
+
+  @@unique([userId, fingerprint])
+  @@map("user_devices")
+}
+
+model UserSession {
+  id               String      @id @default(uuid()) @db.Uuid
+  userId           String      @map("user_id") @db.Uuid
+  deviceId         String?     @map("device_id") @db.Uuid
+  refreshTokenHash String      @map("refresh_token_hash")
+  refreshVersion   Int         @default(0) @map("refresh_version")
+  tokenFamily      String      @map("token_family") @db.Uuid
+  ipAddress        String?     @map("ip_address") @db.Inet
+  userAgent        String?     @map("user_agent")
+  expiresAt        DateTime    @map("expires_at")
+  revokedAt        DateTime?   @map("revoked_at")
+  lastSeenAt       DateTime    @default(now()) @map("last_seen_at")
+  rotatedAt        DateTime?   @map("rotated_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device           UserDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, revokedAt])
+  @@index([tokenFamily, revokedAt])
+  @@map("user_sessions")
+}
+
+model Currency {
+  code           String          @id @db.Char(3)
+  name           String
+  precision      Int
+  wallets        Wallet[]
+  ledgerAccounts LedgerAccount[]
+
+  @@map("currencies")
+}
+
+model Account {
+  id             String              @id @default(uuid()) @db.Uuid
+  userId         String              @map("user_id") @db.Uuid
+  mode           AccountMode
+  status         AccountStatus       @default(ACTIVE)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  wallets        Wallet[]
+  orders         Order[]
+  positions      Position[]
+  contracts      TimedContract[]
+  ledgerAccounts LedgerAccount[]
+  deposits       DepositRequest[]
+  withdrawals    WithdrawalRequest[]
+
+  @@unique([userId, mode])
+  @@unique([id, userId])
+  @@map("accounts")
+}
+
+model Wallet {
+  id                  String   @id @default(uuid()) @db.Uuid
+  accountId           String   @map("account_id") @db.Uuid
+  currencyCode        String   @map("currency_code") @db.Char(3)
+  availableProjection Decimal  @default(0) @map("available_projection") @db.Decimal(24, 8)
+  lockedProjection    Decimal  @default(0) @map("locked_projection") @db.Decimal(24, 8)
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  account             Account  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  currency            Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  @@unique([accountId, currencyCode])
+  @@map("wallets")
+}
+
+model Instrument {
+  id                String            @id @default(uuid()) @db.Uuid
+  slug              String            @unique @db.VarChar(80)
+  symbol            String            @unique
+  name              String
+  assetClass        AssetClass        @map("asset_class")
+  baseAsset         String            @map("base_asset")
+  quoteAsset        String            @map("quote_asset")
+  pricePrecision    Int               @map("price_precision")
+  quantityPrecision Int               @map("quantity_precision")
+  marketStatus      String            @default("SIMULATED") @map("market_status")
+  demoEnabled       Boolean           @default(true) @map("demo_enabled")
+  realEnabled       Boolean           @default(false) @map("real_enabled")
+  config            InstrumentConfig?
+  quotes            MarketQuote[]
+  candles           Candle[]
+  orders            Order[]
+  positions         Position[]
+  contracts         TimedContract[]
+  watchlistItems    WatchlistItem[]
+  alerts            PriceAlert[]
+  sampledPrices     SampledPrice[]
+  feeRules          FeeRule[]
+
+  @@index([assetClass, demoEnabled])
+  @@map("instruments")
+}
+
+model SampledPrice {
+  id             BigInt     @id @default(autoincrement())
+  instrumentSlug String     @map("instrument_slug") @db.VarChar(80)
+  price          Decimal    @db.Decimal(24, 8)
+  sampledAt      DateTime   @default(now()) @map("sampled_at")
+  provider       String     @db.VarChar(80)
+  instrument     Instrument @relation(fields: [instrumentSlug], references: [slug], onDelete: Cascade)
+
+  @@unique([instrumentSlug, sampledAt])
+  @@index([sampledAt])
+  @@map("sampled_prices")
+}
+
+model InstrumentConfig {
+  instrumentId  String     @id @map("instrument_id") @db.Uuid
+  minimumTrade  Decimal    @map("minimum_trade") @db.Decimal(24, 8)
+  maximumTrade  Decimal    @map("maximum_trade") @db.Decimal(24, 8)
+  spreadBps     Int        @default(0) @map("spread_bps")
+  maxQuoteAgeMs Int        @default(5000) @map("max_quote_age_ms")
+  instrument    Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@map("instrument_configs")
+}
+
+model MarketQuote {
+  id                BigInt     @id @default(autoincrement())
+  instrumentId      String     @map("instrument_id") @db.Uuid
+  bid               Decimal    @db.Decimal(30, 12)
+  ask               Decimal    @db.Decimal(30, 12)
+  last              Decimal    @db.Decimal(30, 12)
+  sequence          BigInt
+  provider          String
+  providerTimestamp DateTime   @map("provider_timestamp")
+  receivedTimestamp DateTime   @map("received_timestamp")
+  instrument        Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, instrumentId, sequence])
+  @@index([instrumentId, receivedTimestamp(sort: Desc)])
+  @@map("market_quotes")
+}
+
+model Candle {
+  id           BigInt     @id @default(autoincrement())
+  instrumentId String     @map("instrument_id") @db.Uuid
+  timeframe    String
+  openTime     DateTime   @map("open_time")
+  open         Decimal    @db.Decimal(30, 12)
+  high         Decimal    @db.Decimal(30, 12)
+  low          Decimal    @db.Decimal(30, 12)
+  close        Decimal    @db.Decimal(30, 12)
+  volume       Decimal?   @db.Decimal(30, 12)
+  provider     String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@unique([instrumentId, timeframe, openTime, provider])
+  @@index([instrumentId, timeframe, openTime(sort: Desc)])
+  @@map("candles")
+}
+
+model Watchlist {
+  id     String          @id @default(uuid()) @db.Uuid
+  userId String          @map("user_id") @db.Uuid
+  name   String          @default("Favorites")
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  WatchlistItem[]
+
+  @@unique([userId, name])
+  @@map("watchlists")
+}
+
+model WatchlistItem {
+  watchlistId  String     @map("watchlist_id") @db.Uuid
+  instrumentId String     @map("instrument_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+  watchlist    Watchlist  @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@id([watchlistId, instrumentId])
+  @@map("watchlist_items")
+}
+
+model Order {
+  id               String      @id @default(uuid()) @db.Uuid
+  userId           String      @map("user_id") @db.Uuid
+  accountId        String      @map("account_id") @db.Uuid
+  instrumentId     String      @map("instrument_id") @db.Uuid
+  clientOrderId    String      @map("client_order_id")
+  idempotencyKey   String      @map("idempotency_key")
+  providerOrderId  String?     @map("provider_order_id")
+  side             OrderSide
+  orderType        OrderType   @map("order_type")
+  quantity         Decimal     @db.Decimal(24, 8)
+  requestedPrice   Decimal?    @map("requested_price") @db.Decimal(30, 12)
+  limitPrice       Decimal?    @map("limit_price") @db.Decimal(30, 12)
+  stopPrice        Decimal?    @map("stop_price") @db.Decimal(30, 12)
+  filledQuantity   Decimal     @default(0) @map("filled_quantity") @db.Decimal(24, 8)
+  averageFillPrice Decimal?    @map("average_fill_price") @db.Decimal(30, 12)
+  fees             Decimal     @default(0) @db.Decimal(24, 8)
+  status           OrderStatus @default(CREATED)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account          Account     @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  instrument       Instrument  @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  executions       Execution[]
+
+  @@unique([accountId, clientOrderId])
+  @@index([userId, idempotencyKey])
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model Execution {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @map("order_id") @db.Uuid
+  providerId String?  @map("provider_id")
+  quantity   Decimal  @db.Decimal(24, 8)
+  price      Decimal  @db.Decimal(30, 12)
+  fee        Decimal  @default(0) @db.Decimal(24, 8)
+  executedAt DateTime @map("executed_at")
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, providerId])
+  @@map("executions")
+}
+
+model Position {
+  id           String         @id @default(uuid()) @db.Uuid
+  accountId    String         @map("account_id") @db.Uuid
+  instrumentId String         @map("instrument_id") @db.Uuid
+  side         OrderSide
+  quantity     Decimal        @db.Decimal(24, 8)
+  averageEntry Decimal        @map("average_entry") @db.Decimal(30, 12)
+  realizedPnl  Decimal        @default(0) @map("realized_pnl") @db.Decimal(24, 8)
+  status       PositionStatus @default(OPEN)
+  openedAt     DateTime       @default(now()) @map("opened_at")
+  closedAt     DateTime?      @map("closed_at")
+  account      Account        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  instrument   Instrument     @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, status])
+  @@map("positions")
+}
+
+model TimedContract {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  userId                 String                   @map("user_id") @db.Uuid
+  accountId              String                   @map("account_id") @db.Uuid
+  instrumentId           String                   @map("instrument_id") @db.Uuid
+  idempotencyKey         String                   @map("idempotency_key")
+  direction              ContractDirection
+  investmentAmount       Decimal                  @map("investment_amount") @db.Decimal(24, 8)
+  payoutRate             Decimal                  @map("payout_rate") @db.Decimal(8, 6)
+  settlementModel        String                   @default("FIXED_PAYOUT_V1") @map("settlement_model")
+  profitFeeRate          Decimal                  @default(0) @map("profit_fee_rate") @db.Decimal(8, 6)
+  entryPrice             Decimal                  @map("entry_price") @db.Decimal(30, 12)
+  entryTimestamp         DateTime                 @map("entry_timestamp")
+  expiryTimestamp        DateTime                 @map("expiry_timestamp")
+  entryProviderTimestamp DateTime                 @map("entry_provider_timestamp")
+  entrySequence          BigInt                   @map("entry_sequence")
+  priceSource            String                   @map("price_source")
+  result                 ContractResult           @default(PENDING)
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account                Account                  @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  instrument             Instrument               @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  settlement             TimedContractSettlement?
+
+  @@unique([userId, idempotencyKey])
+  @@index([result, expiryTimestamp])
+  @@map("timed_contracts")
+}
+
+model TimedContractSettlement {
+  contractId              String         @id @map("contract_id") @db.Uuid
+  expiryPrice             Decimal        @map("expiry_price") @db.Decimal(30, 12)
+  expiryTimestamp         DateTime       @map("expiry_timestamp")
+  expiryProviderTimestamp DateTime       @map("expiry_provider_timestamp")
+  expirySequence          BigInt         @map("expiry_sequence")
+  priceSource             String         @map("price_source")
+  result                  ContractResult
+  payoutAmount            Decimal        @map("payout_amount") @db.Decimal(24, 8)
+  grossPnl                Decimal        @default(0) @map("gross_pnl") @db.Decimal(24, 8)
+  feeAmount               Decimal        @default(0) @map("fee_amount") @db.Decimal(24, 8)
+  settledAt               DateTime       @default(now()) @map("settled_at")
+  contract                TimedContract  @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@map("timed_contract_settlements")
+}
+
+model LedgerAccount {
+  id           String            @id @default(uuid()) @db.Uuid
+  accountId    String?           @map("account_id") @db.Uuid
+  currencyCode String            @map("currency_code") @db.Char(3)
+  code         String            @unique
+  name         String
+  type         LedgerAccountType
+  mode         AccountMode?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  account      Account?          @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  currency     Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+  entries      LedgerEntry[]
+
+  @@index([accountId, currencyCode])
+  @@map("ledger_accounts")
+}
+
+model LedgerTransaction {
+  id                    String                @id @default(uuid()) @db.Uuid
+  type                  LedgerTransactionType
+  reference             String?
+  idempotencyKey        String                @unique @map("idempotency_key")
+  reversalOfId          String?               @unique @map("reversal_of_id") @db.Uuid
+  description           String
+  postedAt              DateTime              @default(now()) @map("posted_at")
+  reversalOf            LedgerTransaction?    @relation("LedgerReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy            LedgerTransaction?    @relation("LedgerReversal")
+  entries               LedgerEntry[]
+  depositCredits        DepositRequest[]      @relation("DepositCreditTransaction")
+  withdrawalLocks       WithdrawalRequest[]   @relation("WithdrawalLockTransaction")
+  withdrawalSettlements WithdrawalRequest[]   @relation("WithdrawalSettlementTransaction")
+
+  @@index([type, postedAt(sort: Desc)])
+  @@map("ledger_transactions")
+}
+
+model LedgerEntry {
+  id              String            @id @default(uuid()) @db.Uuid
+  transactionId   String            @map("transaction_id") @db.Uuid
+  ledgerAccountId String            @map("ledger_account_id") @db.Uuid
+  direction       LedgerDirection
+  amount          Decimal           @db.Decimal(24, 8)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  transaction     LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  ledgerAccount   LedgerAccount     @relation(fields: [ledgerAccountId], references: [id], onDelete: Restrict)
+
+  @@index([ledgerAccountId, createdAt])
+  @@map("ledger_entries")
+}
+
+model PaymentMethod {
+  id             String             @id @default(uuid()) @db.Uuid
+  type           PaymentMethodType
+  displayName    String             @map("display_name")
+  accountNumber  String             @map("account_number")
+  accountType    PaymentAccountType @default(PERSONAL) @map("account_type")
+  instructions   String
+  minimumDeposit Decimal            @map("minimum_deposit") @db.Decimal(18, 2)
+  maximumDeposit Decimal            @map("maximum_deposit") @db.Decimal(18, 2)
+  feeType        String             @map("fee_type")
+  feeValue       Decimal            @map("fee_value") @db.Decimal(18, 6)
+  isEnabled      Boolean            @default(false) @map("is_enabled")
+  deposits       DepositRequest[]
+  withdrawals    WithdrawalRequest[]
+
+  @@map("payment_methods")
+}
+
+model DepositRequest {
+  verifiedBy String? @map("verified_by") @db.Uuid
+  verifiedAt DateTime? @map("verified_at")
+  verificationReference String? @map("verification_reference")
+  receivingDetails Json? @map("receiving_details")
+  id                    String             @id @default(uuid()) @db.Uuid
+  userId                String             @map("user_id") @db.Uuid
+  accountId             String             @map("account_id") @db.Uuid
+  paymentMethodId       String             @map("payment_method_id") @db.Uuid
+  idempotencyKey        String             @map("idempotency_key")
+  amount                Decimal            @db.Decimal(18, 2)
+  senderMobile          String             @map("sender_mobile")
+  providerTransactionId String             @map("provider_transaction_id")
+  evidenceObjectKey     String?            @map("evidence_object_key")
+  status                DepositStatus      @default(PENDING_REVIEW)
+  statusVersion         Int                @default(0) @map("status_version")
+  reviewedBy            String?            @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime?          @map("reviewed_at")
+  rejectionReason       String?            @map("rejection_reason")
+  ledgerTransactionId   String?            @unique @map("ledger_transaction_id") @db.Uuid
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account               Account            @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  paymentMethod         PaymentMethod      @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  ledgerTransaction     LedgerTransaction? @relation("DepositCreditTransaction", fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, idempotencyKey])
+  @@unique([paymentMethodId, providerTransactionId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("deposit_requests")
+}
+
+model WithdrawalRequest {
+  reviewStartedBy String? @map("review_started_by") @db.Uuid
+  approvedBy String? @map("approved_by") @db.Uuid
+  processedBy String? @map("processed_by") @db.Uuid
+  id                      String             @id @default(uuid()) @db.Uuid
+  userId                  String             @map("user_id") @db.Uuid
+  accountId               String             @map("account_id") @db.Uuid
+  paymentMethodId         String             @map("payment_method_id") @db.Uuid
+  idempotencyKey          String             @map("idempotency_key")
+  amount                  Decimal            @db.Decimal(18, 2)
+  receiverMobile          String             @map("receiver_mobile")
+  providerTransactionId   String?            @map("provider_transaction_id")
+  evidenceObjectKey       String?            @map("evidence_object_key")
+  status                  WithdrawalStatus   @default(REQUESTED)
+  statusVersion           Int                @default(0) @map("status_version")
+  reviewedBy              String?            @map("reviewed_by") @db.Uuid
+  reviewedAt              DateTime?          @map("reviewed_at")
+  rejectionReason         String?            @map("rejection_reason")
+  lockTransactionId       String             @unique @map("lock_transaction_id") @db.Uuid
+  settlementTransactionId String?            @unique @map("settlement_transaction_id") @db.Uuid
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account                 Account            @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  paymentMethod           PaymentMethod      @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  lockTransaction         LedgerTransaction  @relation("WithdrawalLockTransaction", fields: [lockTransactionId], references: [id], onDelete: Restrict)
+  settlementTransaction   LedgerTransaction? @relation("WithdrawalSettlementTransaction", fields: [settlementTransactionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, idempotencyKey])
+  @@unique([paymentMethodId, providerTransactionId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("withdrawal_requests")
+}
+
+model KycCase {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  status          KycStatus     @default(DRAFT)
+  submittedAt     DateTime?     @map("submitted_at")
+  reviewedAt      DateTime?     @map("reviewed_at")
+  reviewedBy      String?       @map("reviewed_by") @db.Uuid
+  rejectionReason String?       @map("rejection_reason")
+  adminNotes      String?       @map("admin_notes")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  user            User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  documents       KycDocument[]
+
+  @@index([status, submittedAt])
+  @@map("kyc_cases")
+}
+
+model KycDocument {
+  id               String          @id @default(uuid()) @db.Uuid
+  caseId           String          @map("case_id") @db.Uuid
+  type             KycDocumentType
+  objectKey        String          @unique @map("object_key")
+  originalFilename String          @map("original_filename")
+  declaredMimeType String          @map("declared_mime_type")
+  detectedMimeType String?         @map("detected_mime_type")
+  sizeBytes        Int             @map("size_bytes")
+  sha256           String
+  scanStatus       ScanStatus      @default(PENDING) @map("scan_status")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  case             KycCase         @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@map("kyc_documents")
+}
+
+model FeeRule {
+  id              String      @id @default(uuid()) @db.Uuid
+  assetClass      AssetClass? @map("asset_class")
+  instrumentId    String?     @map("instrument_id") @db.Uuid
+  accountTier     String?     @map("account_tier")
+  transactionType String      @map("transaction_type")
+  userTier        String?     @map("user_tier")
+  feeType         String      @map("fee_type")
+  feeValue        Decimal     @map("fee_value") @db.Decimal(18, 8)
+  effectiveFrom   DateTime    @map("effective_from")
+  effectiveTo     DateTime?   @map("effective_to")
+  enabled         Boolean     @default(true)
+  instrument      Instrument? @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@index([transactionType, effectiveFrom])
+  @@map("fee_rules")
+}
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("system_config")
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  description String
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  @@map("feature_flags")
+}
+
+model ComplianceConfig {
+  id        String   @id @default("active")
+  mode      String   @default("DEMO_ONLY")
+  config    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("compliance_config")
+}
+
+model AdminUser {
+  id           String                @id @default(uuid()) @db.Uuid
+  email        String                @unique
+  passwordHash String                @map("password_hash")
+  active       Boolean               @default(true)
+  createdAt    DateTime              @default(now()) @map("created_at")
+  assignments  AdminRoleAssignment[]
+  auditLogs    AuditLog[]            @relation("AdminAuditActor")
+
+  @@map("admin_users")
+}
+
+model Role {
+  id          String                @id @default(uuid()) @db.Uuid
+  name        String                @unique
+  description String?
+  permissions RolePermission[]
+  assignments AdminRoleAssignment[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  description String
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AdminRoleAssignment {
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  roleId      String    @map("role_id") @db.Uuid
+  assignedAt  DateTime  @default(now()) @map("assigned_at")
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([adminUserId, roleId])
+  @@map("admin_role_assignments")
+}
+
+model AuditLog {
+  id            BigInt     @id @default(autoincrement())
+  actorType     ActorType  @map("actor_type")
+  actorUserId   String?    @map("actor_user_id") @db.Uuid
+  actorAdminId  String?    @map("actor_admin_id") @db.Uuid
+  action        String
+  resourceType  String     @map("resource_type")
+  resourceId    String?    @map("resource_id")
+  previousValue Json?      @map("previous_value")
+  newValue      Json?      @map("new_value")
+  ipAddress     String?    @map("ip_address") @db.Inet
+  userAgent     String?    @map("user_agent")
+  requestId     String     @map("request_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  actorUser     User?      @relation("UserAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorAdmin    AdminUser? @relation("AdminAuditActor", fields: [actorAdminId], references: [id], onDelete: Restrict)
+
+  @@index([resourceType, resourceId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model RiskFlag {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  type       String
+  severity   String
+  status     RiskStatus @default(OPEN)
+  evidence   Json
+  createdAt  DateTime   @default(now()) @map("created_at")
+  resolvedAt DateTime?  @map("resolved_at")
+  user       User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([status, severity, createdAt])
+  @@map("risk_flags")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      String
+  titleKey  String    @map("title_key")
+  bodyKey   String    @map("body_key")
+  data      Json?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId  String              @map("user_id") @db.Uuid
+  channel NotificationChannel
+  type    String
+  enabled Boolean             @default(true)
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channel, type])
+  @@map("notification_preferences")
+}
+
+model PriceAlert {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  instrumentId String     @map("instrument_id") @db.Uuid
+  operator     String
+  targetPrice  Decimal    @map("target_price") @db.Decimal(30, 12)
+  repeats      Boolean    @default(false)
+  active       Boolean    @default(true)
+  triggeredAt  DateTime?  @map("triggered_at")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([instrumentId, active])
+  @@map("price_alerts")
+}
+
+model SubscriptionPlan {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @unique
+  priceBdt      Decimal        @map("price_bdt") @db.Decimal(18, 2)
+  features      Json
+  active        Boolean        @default(true)
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id       String           @id @default(uuid()) @db.Uuid
+  userId   String           @map("user_id") @db.Uuid
+  planId   String           @map("plan_id") @db.Uuid
+  startsAt DateTime         @map("starts_at")
+  endsAt   DateTime?        @map("ends_at")
+  status   String
+  user     User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model IdempotencyCommand {
+  id          String            @id @default(uuid()) @db.Uuid
+  actorType   ActorType         @map("actor_type")
+  actorId     String            @map("actor_id") @db.VarChar(128)
+  operation   String            @db.VarChar(128)
+  key         String            @db.VarChar(128)
+  requestHash String            @map("request_hash") @db.Char(64)
+  status      IdempotencyStatus @default(PROCESSING)
+  response    Json?
+  errorCode   String?           @map("error_code") @db.VarChar(128)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  expiresAt   DateTime?         @map("expires_at")
+
+  @@unique([actorType, actorId, operation, key])
+  @@index([status, createdAt])
+  @@index([expiresAt])
+  @@map("idempotency_commands")
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type") @db.VarChar(128)
+  aggregateId   String    @map("aggregate_id") @db.VarChar(128)
+  eventType     String    @map("event_type") @db.VarChar(160)
+  payload       Json
+  occurredAt    DateTime  @default(now()) @map("occurred_at")
+  publishedAt   DateTime? @map("published_at")
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+  claimToken    String?   @map("claim_token") @db.Uuid
+  claimedAt     DateTime? @map("claimed_at")
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at")
+
+  @@index([publishedAt, nextAttemptAt, claimedAt, occurredAt])
+  @@index([aggregateType, aggregateId, occurredAt])
+  @@map("outbox_events")
+}
+
+model EvidenceFile {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  ownerType String @map("owner_type")
+  purpose String
+  objectKey String @unique @map("object_key")
+  filename String
+  mimeType String @map("mime_type")
+  sha256 String
+  sizeBytes Int @map("size_bytes")
+  status String @default("CLEAN")
+  claimedBy String? @unique @map("claimed_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([ownerId, createdAt])
+  @@map("evidence_files")
+}
+
+model AdminChange {
+  id String @id @default(uuid()) @db.Uuid
+  kind String
+  targetId String @map("target_id")
+  payload Json
+  fingerprint String
+  requestedBy String @map("requested_by") @db.Uuid
+  reviewedBy String? @map("reviewed_by") @db.Uuid
+  status String @default("PENDING")
+  createdAt DateTime @default(now()) @map("created_at")
+  reviewedAt DateTime? @map("reviewed_at")
+  @@index([status,createdAt])
+  @@map("admin_changes")
+}
+
+model AdminCredential {
+  id String @id
+  adminId String @map("admin_id") @db.Uuid
+  publicKey Bytes @map("public_key")
+  counter BigInt @default(0)
+  deviceType String @map("device_type")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([adminId])
+  @@map("admin_credentials")
+}
+
+model AdminChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  adminId String @map("admin_id") @db.Uuid
+  kind String
+  challenge String
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  @@map("admin_challenges")
+}
+
+model TreasuryStatement {
+  id String @id @default(uuid()) @db.Uuid
+  accountReference String @map("account_reference")
+  category String
+  balance Decimal @db.Decimal(24,2)
+  asOf DateTime @map("as_of")
+  evidenceId String @map("evidence_id") @db.Uuid
+  submittedBy String @map("submitted_by") @db.Uuid
+  reviewedBy String? @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at")
+  status String @default("PENDING")
+  notes String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([accountReference, asOf])
+  @@map("treasury_statements")
+}
+
+model ReleaseApproval {
+  id String @id @default(uuid()) @db.Uuid
+  version String
+  gate String
+  approvedBy String @map("approved_by") @db.Uuid
+  evidenceReference String @map("evidence_reference")
+  notes String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+  @@index([version, gate])
+  @@map("release_approvals")
+}
+
+model ContractPriceObservation {
+  source String @db.VarChar(100)
+  timestamp DateTime
+  price Decimal @db.Decimal(36,18)
+  payload Json
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@id([source, timestamp])
+  @@map("contract_price_observations")
+}
+
+model LegalDocument {
+  id            String            @id @default(uuid()) @db.Uuid
+  type          LegalDocumentType
+  version       String
+  effectiveDate DateTime          @map("effective_date") @db.Date
+  contentUrl    String            @map("content_url")
+  active        Boolean           @default(false)
+  acceptances   LegalAcceptance[]
+
+  @@unique([type, version])
+  @@map("legal_documents")
+}
+
+model LegalAcceptance {
+  userId     String        @map("user_id") @db.Uuid
+  documentId String        @map("document_id") @db.Uuid
+  acceptedAt DateTime      @default(now()) @map("accepted_at")
+  ipAddress  String?       @map("ip_address") @db.Inet
+  user       User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  document   LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@id([userId, documentId])
+  @@map("legal_acceptances")
+}

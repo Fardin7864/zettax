@@ -1,0 +1,15 @@
+[Unit]
+Description=PrimeVest encrypted offsite backup
+Requires=docker.service
+After=docker.service primevest.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/primevest
+EnvironmentFile=/etc/primevest/production.env
+ExecStart=/opt/primevest/infrastructure/scripts/backup-single-vps.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+

@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule PrimeVest encrypted offsite backup
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+Unit=primevest-backup.service
+
+[Install]
+WantedBy=timers.target

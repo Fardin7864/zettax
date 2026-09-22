@@ -1,0 +1,20 @@
+[Unit]
+Description=PrimeVest single-VPS Docker stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/primevest
+Environment=PRIMEVEST_ENV_FILE=/etc/primevest/production.env
+ExecStartPre=/usr/bin/docker compose --env-file ${PRIMEVEST_ENV_FILE} -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.single-vps.yml config --quiet
+ExecStartPre=/usr/bin/docker compose --env-file ${PRIMEVEST_ENV_FILE} -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.single-vps.yml build postgres backend admin
+ExecStart=/usr/bin/docker compose --env-file ${PRIMEVEST_ENV_FILE} -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.single-vps.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose --env-file ${PRIMEVEST_ENV_FILE} -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.single-vps.yml down
+TimeoutStartSec=900
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target
