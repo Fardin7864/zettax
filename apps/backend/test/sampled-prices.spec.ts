@@ -77,7 +77,10 @@ describe("price-only API snapshots", () => {
       TWELVE_DATA_API_KEY: "test-key",
       TWELVE_DATA_EXTERNAL_DISPLAY_APPROVED: "true",
     });
-    const now = new Date();
+    // Keep both polls in the same 15-minute bucket regardless of CI timing.
+    const now = new Date(
+      Math.floor(Date.now() / (15 * 60_000)) * (15 * 60_000) + 60_000,
+    );
     rows.push({
       id: 100n,
       instrumentSlug: "aapl",
