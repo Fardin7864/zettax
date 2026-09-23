@@ -545,7 +545,7 @@ class _DownloadSection extends StatelessWidget {
                   const SizedBox(width: 28),
                   Expanded(child: _downloadCopy),
                   const SizedBox(width: 28),
-                  _downloadButtons(),
+                  SizedBox(width: 250, child: _downloadButtons()),
                 ]),
         ),
       );
