@@ -12,6 +12,24 @@ final marketRealtimeClientProvider = Provider<MarketRealtimeClient>(
   (ref) => MarketRealtimeClient(tokenStore: ref.watch(tokenStoreProvider)),
 );
 
+/// Daily observations for calendar-day performance. The API caps each page at
+/// 200 bars, so a second page is needed to cover a full year of daily crypto.
+final dailyPerformanceProvider = FutureProvider.autoDispose
+    .family<MarketCandleSeries, String>((ref, assetId) async {
+  final api = ref.watch(marketDataApiProvider);
+  final latest = await api.fetchCandles(assetId, '1d', limit: 200);
+  final cursor = latest.nextCursor;
+  if (cursor == null) return latest;
+  try {
+    final older =
+        await api.fetchCandles(assetId, '1d', limit: 200, before: cursor);
+    return latest.mergeOlder(older);
+  } catch (_) {
+    // Shorter windows remain useful; long windows will show unavailable.
+    return latest;
+  }
+});
+
 final liveCandlesProvider = StateNotifierProvider.autoDispose.family<
     MarketCandleHistoryController,
     AsyncValue<MarketCandleSeries>,

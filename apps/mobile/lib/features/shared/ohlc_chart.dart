@@ -44,7 +44,7 @@ double? candleAverage(List<ChartCandle> candles, int index, int period,
 
 double chartBodyWidth(double viewportWidth, int visibleCount) {
   final plotWidth = max(0.0, viewportWidth - 64);
-  return max(1.0, plotWidth / max(1, visibleCount + 2) * .98);
+  return max(1.0, plotWidth / max(1, visibleCount) * .98);
 }
 
 class ChartTradeMarker {
@@ -155,8 +155,7 @@ class _OhlcChartState extends State<OhlcChart> {
                       minimum,
                       maxVisible,
                     );
-            final candleWidth =
-                max(1.0, (_canvasWidth - 64) / (nextVisible + 2));
+            final candleWidth = max(1.0, (_canvasWidth - 64) / nextVisible);
             final movedCandles =
                 ((details.localFocalPoint.dx - _scaleStartFocal.dx) /
                         candleWidth)
@@ -621,8 +620,7 @@ class _CandleTimeline {
       DateTime.now().millisecondsSinceEpoch,
       lastTime + sampleStep,
     );
-    const futureSlots = 2;
-    spacing = (right - left) / max(1, candles.length + futureSlots);
+    spacing = (right - left) / max(1, candles.length);
     bodyWidth = chartBodyWidth(width, candles.length);
   }
 

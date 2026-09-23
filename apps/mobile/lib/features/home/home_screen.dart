@@ -16,6 +16,7 @@ import 'package:primevest_mobile/demo/providers.dart';
 import 'package:primevest_mobile/features/shared/market_widgets.dart';
 import 'package:primevest_mobile/features/shared/ohlc_chart.dart';
 import 'package:primevest_mobile/features/shared/live_trade_chart.dart';
+import 'package:primevest_mobile/features/shared/market_performance.dart';
 import 'package:primevest_mobile/l10n/app_localizations.dart';
 import 'package:primevest_mobile/market/display_currency.dart';
 import 'package:primevest_mobile/market/market_data_providers.dart';
@@ -32,12 +33,19 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late int index = widget.initialTab.clamp(0, 4);
+  late int lastNonTradeIndex = index == 2 ? 0 : index;
+
+  void _selectTab(int value) {
+    if (value != 2) lastNonTradeIndex = value;
+    setState(() => index = value);
+  }
 
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
       index = widget.initialTab.clamp(0, 4);
+      if (index != 2) lastNonTradeIndex = index;
     }
   }
 
@@ -47,36 +55,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l10n = AppLocalizations.of(context);
     final pages = [
       DashboardPage(
-          onTrade: () => setState(() => index = 2),
-          onMarkets: () => setState(() => index = 1)),
-      MarketsPage(onTrade: () => setState(() => index = 2)),
-      TickerMode(enabled: index == 2, child: const TradePage()),
+          onTrade: () => _selectTab(2), onMarkets: () => _selectTab(1)),
+      MarketsPage(onTrade: () => _selectTab(2)),
+      TickerMode(
+          enabled: index == 2,
+          child: TradePage(onBack: () => _selectTab(lastNonTradeIndex))),
       const PortfolioPage(),
       const ProfilePage(),
     ];
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) => setState(() => index = value),
-        destinations: [
-          NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home),
-              label: l10n.home),
-          NavigationDestination(
-              icon: const Icon(Icons.candlestick_chart_outlined),
-              label: l10n.markets),
-          NavigationDestination(
-              icon: const Icon(Icons.swap_vert_circle_outlined),
-              selectedIcon: const Icon(Icons.swap_vert_circle),
-              label: l10n.trade),
-          NavigationDestination(
-              icon: const Icon(Icons.pie_chart_outline), label: l10n.portfolio),
-          NavigationDestination(
-              icon: const Icon(Icons.person_outline), label: l10n.profile),
-        ],
-      ),
+      bottomNavigationBar: index == 2
+          ? null
+          : NavigationBar(
+              selectedIndex: index,
+              onDestinationSelected: _selectTab,
+              destinations: [
+                NavigationDestination(
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home),
+                    label: l10n.home),
+                NavigationDestination(
+                    icon: const Icon(Icons.candlestick_chart_outlined),
+                    label: l10n.markets),
+                NavigationDestination(
+                    icon: const Icon(Icons.swap_vert_circle_outlined),
+                    selectedIcon: const Icon(Icons.swap_vert_circle),
+                    label: l10n.trade),
+                NavigationDestination(
+                    icon: const Icon(Icons.pie_chart_outline),
+                    label: l10n.portfolio),
+                NavigationDestination(
+                    icon: const Icon(Icons.person_outline),
+                    label: l10n.profile),
+              ],
+            ),
     );
   }
 }
@@ -487,7 +500,8 @@ class _MarketsPageState extends ConsumerState<MarketsPage> {
 }
 
 class TradePage extends ConsumerStatefulWidget {
-  const TradePage({super.key});
+  const TradePage({super.key, required this.onBack});
+  final VoidCallback onBack;
   @override
   ConsumerState<TradePage> createState() => _TradePageState();
 }
@@ -639,6 +653,12 @@ class _TradePageState extends ConsumerState<TradePage> {
       limit: period.limit,
     );
     final displaySeries = ref.watch(liveCandlesProvider(candleRequest));
+    final dailyHistory = ref.watch(dailyPerformanceProvider(asset.id));
+    final providerTime = displaySeries.valueOrNull?.providerTimestamp;
+    final utcNow = DateTime.now().toUtc();
+    final performanceAsOf = providerTime != null && providerTime.isAfter(utcNow)
+        ? utcNow
+        : providerTime;
     // Demo order accounting remains isolated from external display feeds.
     final executionPrice =
         ref.watch(marketProvider).prices[asset.id] ?? asset.price;
@@ -926,7 +946,7 @@ class _TradePageState extends ConsumerState<TradePage> {
     }
 
     return SafeArea(
-      bottom: false,
+      bottom: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(2, 3, 2, 3),
         child: Column(children: [
@@ -936,6 +956,14 @@ class _TradePageState extends ConsumerState<TradePage> {
                 color: PrimeVestDesignSystem.surfaceDark,
                 borderRadius: BorderRadius.circular(16)),
             child: Row(children: [
+              IconButton(
+                  key: const ValueKey('trade-back-button'),
+                  tooltip: 'Back',
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints.tightFor(width: 30, height: 36)),
               const ZettaxMark(height: 20),
               const SizedBox(width: 6),
               Expanded(
@@ -1077,6 +1105,15 @@ class _TradePageState extends ConsumerState<TradePage> {
                       label: const Text('Retry market connection'))),
             ),
           ),
+          SizedBox(
+            height: 47,
+            child: MarketPerformanceStrip(
+              history: dailyHistory.valueOrNull,
+              latestPrice: livePrice,
+              asOf: performanceAsOf,
+              loading: dailyHistory.isLoading,
+            ),
+          ),
           if (tradeMarkers.isNotEmpty)
             SizedBox(
                 height: 34,
@@ -1171,17 +1208,6 @@ class _TradePageState extends ConsumerState<TradePage> {
                             ? () => submit(true)
                             : null))),
           ]),
-          const SizedBox(height: 2),
-          Text(
-              !tradingAvailable
-                  ? 'Real trading is unavailable'
-                  : !demoSelected && virtual
-                      ? 'Virtual balance · proportional return · loss capped at stake'
-                      : timed
-                          ? 'Proportional return · loss capped at stake · hold to expiry'
-                          : 'Demo position · close from Portfolio',
-              style: const TextStyle(
-                  fontSize: 10, color: PrimeVestDesignSystem.textMuted)),
         ]),
       ),
     );

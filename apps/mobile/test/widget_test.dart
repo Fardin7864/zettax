@@ -95,9 +95,40 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.byType(NavigationBar), findsNothing);
+    // The test has no market catalogue, so TradePage is showing its loader.
+    // Invoke the back action provided by HomeScreen to test the tab return.
+    tester.widget<TradePage>(find.byType(TradePage)).onBack();
+    await tester.pump();
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      0,
+    );
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: HomeScreen(key: key, initialTab: 1),
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: HomeScreen(key: key, initialTab: 2),
+        ),
+      ),
+    );
+    await tester.pump();
+    tester.widget<TradePage>(find.byType(TradePage)).onBack();
+    await tester.pump();
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      1,
     );
 
     await tester.pumpWidget(const SizedBox.shrink());
