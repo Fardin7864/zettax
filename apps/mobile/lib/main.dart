@@ -12,6 +12,7 @@ import 'package:primevest_mobile/features/auth/auth_screen.dart';
 import 'package:primevest_mobile/features/home/home_screen.dart';
 import 'package:primevest_mobile/features/funding/funding_screens.dart';
 import 'package:primevest_mobile/features/onboarding/welcome_screen.dart';
+import 'package:primevest_mobile/features/onboarding/web_landing_screen.dart';
 import 'package:primevest_mobile/features/portfolio/demo_transactions_screen.dart';
 import 'package:primevest_mobile/features/profile/education_screen.dart';
 import 'package:primevest_mobile/features/profile/language_screen.dart';
@@ -37,12 +38,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (_, state) {
       final location = state.matchedLocation;
       if (session.phase == SessionPhase.bootstrapping) {
-        if (kIsWeb && location != '/' && location != '/splash') return null;
+        if (kIsWeb && location != '/splash') return null;
         return location == '/splash' ? null : '/splash';
       }
       if (location == '/') {
         return kIsWeb
-            ? '/home?tab=2'
+            ? null
             : session.phase == SessionPhase.authenticated
                 ? '/home'
                 : '/welcome';
@@ -57,7 +58,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
+      GoRoute(
+          path: '/',
+          builder: (_, __) =>
+              kIsWeb ? const WebLandingScreen() : const SplashScreen()),
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
       GoRoute(

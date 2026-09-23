@@ -38,3 +38,4 @@ flutter:
     - assets/mock/instruments.json
     - assets/branding/zettax_mark.png
     - assets/branding/zettax_wordmark.png
+    - assets/landing/market_energy.png
