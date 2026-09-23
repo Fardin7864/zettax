@@ -184,7 +184,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ],
                   const SizedBox(height: 12),
                   OutlinedButton(
-                    onPressed: () => context.go('/home'),
+                    onPressed: () =>
+                        context.go(kIsWeb ? '/home?tab=2' : '/home'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(54),
                     ),
@@ -247,7 +248,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (!mounted) return;
     setState(() => submitting = false);
     if (succeeded) {
-      context.go('/home');
+      context.go(kIsWeb ? '/home?tab=2' : '/home');
       return;
     }
     _showFailure();
@@ -259,7 +260,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (!mounted) return;
     setState(() => submitting = false);
     if (succeeded) {
-      context.go('/home');
+      context.go(kIsWeb ? '/home?tab=2' : '/home');
       return;
     }
     final failure = ref.read(sessionProvider).failure;
@@ -274,7 +275,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (!mounted) return;
     setState(() => submitting = false);
     if (succeeded) {
-      context.go('/home');
+      context.go(kIsWeb ? '/home?tab=2' : '/home');
     } else {
       _showFailure();
     }

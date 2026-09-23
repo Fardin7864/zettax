@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:primevest_mobile/app/brand_logo.dart';
@@ -32,6 +33,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   void _leaveSplash() {
     if (!mounted) return;
+    if (kIsWeb) {
+      context.go('/home?tab=2');
+      return;
+    }
     context.go(ref.read(sessionProvider).phase == SessionPhase.authenticated
         ? '/home'
         : '/welcome');

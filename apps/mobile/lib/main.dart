@@ -41,16 +41,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         return location == '/splash' ? null : '/splash';
       }
       if (location == '/') {
-        return session.phase == SessionPhase.authenticated
-            ? '/home'
-            : '/welcome';
+        return kIsWeb
+            ? '/home?tab=2'
+            : session.phase == SessionPhase.authenticated
+                ? '/home'
+                : '/welcome';
       }
       if (session.phase == SessionPhase.authenticated &&
           (location == '/splash' ||
               location == '/welcome' ||
               location == '/login' ||
               location == '/register')) {
-        return '/home';
+        return kIsWeb ? '/home?tab=2' : '/home';
       }
       return null;
     },
@@ -115,7 +117,7 @@ class PrimeVestApp extends ConsumerWidget {
             color: PrimeVestDesignSystem.backgroundDark,
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
+                constraints: const BoxConstraints(maxWidth: 1900),
                 child: content,
               ),
             ),

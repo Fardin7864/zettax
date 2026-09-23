@@ -68,28 +68,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final wide = kIsWeb && constraints.maxWidth >= 900;
       final content = IndexedStack(index: index, children: pages);
       return Scaffold(
-        body: wide && index != 2
-            ? Row(children: [
-                NavigationRail(
-                  extended: constraints.maxWidth >= 1100,
+        body: wide
+            ? Column(children: [
+                _WebNavigationBar(
                   selectedIndex: index,
-                  onDestinationSelected: _selectTab,
-                  destinations: [
-                    NavigationRailDestination(
-                        icon: const Icon(Icons.home_outlined),
-                        label: Text(l10n.home)),
-                    NavigationRailDestination(
-                        icon: const Icon(Icons.candlestick_chart_outlined),
-                        label: Text(l10n.markets)),
-                    NavigationRailDestination(
-                        icon: const Icon(Icons.swap_vert_circle_outlined),
-                        label: Text(l10n.trade)),
-                    NavigationRailDestination(
-                        icon: const Icon(Icons.pie_chart_outline),
-                        label: Text(l10n.portfolio)),
-                    NavigationRailDestination(
-                        icon: const Icon(Icons.person_outline),
-                        label: Text(l10n.profile)),
+                  onSelected: _selectTab,
+                  labels: [
+                    l10n.home,
+                    l10n.markets,
+                    l10n.trade,
+                    l10n.portfolio,
+                    l10n.profile,
                   ],
                 ),
                 Expanded(child: content),
@@ -122,6 +111,79 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
       );
     });
+  }
+}
+
+class _WebNavigationBar extends ConsumerWidget {
+  const _WebNavigationBar({
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.labels,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    final icons = [
+      Icons.home_outlined,
+      Icons.candlestick_chart_outlined,
+      Icons.swap_vert_circle_outlined,
+      Icons.pie_chart_outline,
+      Icons.person_outline,
+    ];
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      decoration: const BoxDecoration(
+        color: PrimeVestDesignSystem.surfaceDark,
+        border: Border(bottom: BorderSide(color: Color(0xFF40382F))),
+      ),
+      child: Row(children: [
+        const ZettaxMark(height: 34),
+        const SizedBox(width: 12),
+        const Text('Zettax',
+            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+        const SizedBox(width: 34),
+        for (var i = 0; i < labels.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: TextButton.icon(
+              onPressed: () => onSelected(i),
+              icon: Icon(icons[i], size: 19),
+              label: Text(labels[i]),
+              style: TextButton.styleFrom(
+                foregroundColor: i == selectedIndex
+                    ? PrimeVestDesignSystem.primaryGold
+                    : PrimeVestDesignSystem.textMuted,
+                backgroundColor: i == selectedIndex
+                    ? const Color(0x333D3324)
+                    : Colors.transparent,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        const Spacer(),
+        if (session.phase == SessionPhase.authenticated)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(session.user?.email ?? 'Account',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
+          )
+        else
+          OutlinedButton(
+            onPressed: () => context.push('/login'),
+            child: const Text('Sign in'),
+          ),
+      ]),
+    );
   }
 }
 
@@ -180,6 +242,93 @@ class DashboardPage extends ConsumerWidget {
     final serverWallet = serverAccount?.wallets.firstOrNull;
     final assets = ref.watch(assetsProvider).value ?? const <MarketAsset>[];
     final market = ref.watch(marketProvider);
+    if (kIsWeb && MediaQuery.sizeOf(context).width >= 900) {
+      final balance = mode == AccountMode.demo
+          ? authenticated
+              ? ServerBalanceCard(wallet: serverWallet, onTrade: onTrade)
+              : BalanceCard(account: account, onTrade: onTrade)
+          : RealBalanceCard(wallet: serverWallet, authenticated: authenticated);
+      final favorites = assets
+          .where((asset) => market.favorites.contains(asset.id))
+          .take(3)
+          .toList();
+      return ListView(children: [
+        const PrimeVestHeader(
+            title: 'Overview', subtitle: 'Your Zettax workspace'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 16, 28, 28),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: balance),
+              const SizedBox(width: 22),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: PrimeVestDesignSystem.surfaceDark,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: const Color(0xFF40382F)),
+                  ),
+                  child: Column(children: [
+                    SectionTitle(
+                        title: 'Watchlist',
+                        action: 'View markets',
+                        onAction: onMarkets),
+                    const SizedBox(height: 12),
+                    if (favorites.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 28),
+                        child: Text('Star markets to follow their prices here.',
+                            style: TextStyle(
+                                color: PrimeVestDesignSystem.textMuted)),
+                      ),
+                    for (final asset in favorites)
+                      MarketTile(
+                          asset: asset,
+                          onTap: () => context.push('/asset/${asset.id}')),
+                  ]),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 28),
+            const SectionTitle(title: 'Explore markets'),
+            const SizedBox(height: 14),
+            SizedBox(
+                height: 98,
+                child: Row(children: [
+                  CategoryCard(
+                      icon: Icons.currency_bitcoin,
+                      title: 'Crypto',
+                      subtitle: '4 assets',
+                      onTap: onMarkets),
+                  CategoryCard(
+                      icon: Icons.currency_exchange,
+                      title: 'Forex',
+                      subtitle: '4 pairs',
+                      onTap: onMarkets),
+                  CategoryCard(
+                      icon: Icons.show_chart,
+                      title: 'Stocks',
+                      subtitle: '4 assets',
+                      onTap: onMarkets),
+                  CategoryCard(
+                      icon: Icons.account_balance,
+                      title: 'Indices',
+                      subtitle: '3 markets',
+                      onTap: onMarkets),
+                  CategoryCard(
+                      icon: Icons.diamond_outlined,
+                      title: 'Commodities',
+                      subtitle: '3 assets',
+                      onTap: onMarkets),
+                ])),
+            const SizedBox(height: 26),
+            const SizedBox(width: 520, child: EducationCard()),
+          ]),
+        ),
+      ]);
+    }
     return CustomScrollView(slivers: [
       const SliverToBoxAdapter(
           child: PrimeVestHeader(
@@ -509,6 +658,37 @@ class _MarketsPageState extends ConsumerState<MarketsPage> {
                     : asset.assetClass == category);
             return matchesSearch && matchesCategory;
           }).toList();
+          if (kIsWeb && MediaQuery.sizeOf(context).width >= 900) {
+            return GridView.builder(
+              padding: const EdgeInsets.fromLTRB(28, 14, 28, 28),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 470,
+                mainAxisExtent: 86,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+              ),
+              itemCount: filtered.length,
+              itemBuilder: (_, index) {
+                final asset = filtered[index];
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: PrimeVestDesignSystem.surfaceDark,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: const Color(0xFF40382F)),
+                  ),
+                  child: MarketTile(
+                    asset: asset,
+                    favorite: favorites.contains(asset.id),
+                    onFavorite: () => ref
+                        .read(marketProvider.notifier)
+                        .toggleFavorite(asset.id),
+                    onTap: () => context.push('/asset/${asset.id}'),
+                  ),
+                );
+              },
+            );
+          }
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             itemCount: filtered.length,
@@ -866,7 +1046,9 @@ class _TradePageState extends ConsumerState<TradePage> {
     }
 
     Future<void> contract(ContractDirection direction) async {
-      final feeRate = await ref.read(tradingRepositoryProvider).profitFeeRate();
+      final feeRate = authenticated
+          ? await ref.read(tradingRepositoryProvider).profitFeeRate()
+          : '0';
       if (!context.mounted) return;
       final observed = ref
           .read(liveCandlesProvider(candleRequest))
@@ -921,7 +1103,7 @@ class _TradePageState extends ConsumerState<TradePage> {
     }
 
     Future<void> submit(bool buy) async {
-      if (!authenticated) {
+      if (!authenticated && !(kIsWeb && demoSelected)) {
         context.push('/login');
         return;
       }
@@ -929,7 +1111,8 @@ class _TradePageState extends ConsumerState<TradePage> {
       setState(() => submitting = true);
       try {
         final repository = ref.read(tradingRepositoryProvider);
-        final pending = await repository.pendingTimedContract();
+        final pending =
+            authenticated ? await repository.pendingTimedContract() : null;
         if (!context.mounted) return;
         if (pending != null) {
           final body = pending['body'] as Map;
@@ -974,6 +1157,328 @@ class _TradePageState extends ConsumerState<TradePage> {
       } finally {
         if (mounted) setState(() => submitting = false);
       }
+    }
+
+    if (kIsWeb && MediaQuery.sizeOf(context).width >= 900) {
+      final compactDesktop = MediaQuery.sizeOf(context).width < 1200;
+      final chart = displaySeries.when(
+        data: (series) => LiveTradeChart(
+          key: ValueKey('${asset.id}:${period.id}'),
+          series: series,
+          precision: asset.precision,
+          markers: tradeMarkers,
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => Center(
+          child: TextButton.icon(
+            onPressed: () => ref.invalidate(liveCandlesProvider(candleRequest)),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry market connection'),
+          ),
+        ),
+      );
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.candlestick_chart_outlined,
+                  color: PrimeVestDesignSystem.primaryGold, size: 25),
+              const SizedBox(width: 12),
+              const Text('Trading workspace',
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 16),
+              Text(demoSelected ? 'DEMO MARKET' : 'LIVE MARKET',
+                  style: const TextStyle(
+                      color: PrimeVestDesignSystem.textMuted,
+                      fontSize: 11,
+                      letterSpacing: 1.2)),
+              const Spacer(),
+              const CurrencySelector(),
+            ]),
+            const SizedBox(height: 18),
+            Expanded(
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: PrimeVestDesignSystem.surfaceDark,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFF40382F)),
+                        ),
+                        child: Column(children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            child: Row(children: [
+                              IconButton(
+                                tooltip: 'Favorite instrument',
+                                onPressed: () => ref
+                                    .read(marketProvider.notifier)
+                                    .toggleFavorite(asset.id),
+                                icon: Icon(
+                                  ref
+                                          .watch(marketProvider)
+                                          .favorites
+                                          .contains(asset.id)
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
+                                  color: PrimeVestDesignSystem.primaryGold,
+                                ),
+                              ),
+                              SizedBox(
+                                width: compactDesktop ? 170 : 230,
+                                child: DropdownButtonFormField<String>(
+                                  key: ValueKey('desktop-${asset.id}'),
+                                  initialValue: asset.id,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 11),
+                                  ),
+                                  items: assets
+                                      .map((item) => DropdownMenuItem(
+                                            value: item.id,
+                                            child: Row(children: [
+                                              AssetIcon(asset: item, size: 22),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(item.symbol,
+                                                    overflow:
+                                                        TextOverflow.ellipsis),
+                                              ),
+                                            ]),
+                                          ))
+                                      .toList(),
+                                  onChanged: submitting
+                                      ? null
+                                      : (value) => ref
+                                          .read(selectedAssetProvider.notifier)
+                                          .state = value ?? asset.id,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Flexible(
+                                child: Text(displayPrice,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 21,
+                                        fontWeight: FontWeight.w800)),
+                              ),
+                              const Spacer(),
+                              if (!compactDesktop)
+                                Text(
+                                  displaySeries.valueOrNull?.freshness ==
+                                          'SAMPLED'
+                                      ? '● Sampled real price'
+                                      : displaySeries.valueOrNull?.freshness ==
+                                              'SIMULATED'
+                                          ? '● Simulated'
+                                          : displaySeries
+                                                      .valueOrNull?.delivery ==
+                                                  'WEBSOCKET'
+                                              ? '● Live'
+                                              : '● Updating',
+                                  style: const TextStyle(
+                                      color: PrimeVestDesignSystem.primaryGold,
+                                      fontSize: 11),
+                                ),
+                              const SizedBox(width: 12),
+                              PopupMenuButton<String>(
+                                key:
+                                    const ValueKey('desktop-chart-period-menu'),
+                                initialValue: periodId,
+                                tooltip: 'Chart period',
+                                onSelected: (value) =>
+                                    setState(() => periodId = value),
+                                itemBuilder: (_) => _chartPeriods
+                                    .map((value) => PopupMenuItem(
+                                        value: value.id,
+                                        child: Text(value.menuLabel)))
+                                    .toList(),
+                                child: Chip(label: Text(period.shortLabel)),
+                              ),
+                            ]),
+                          ),
+                          Expanded(child: chart),
+                          SizedBox(
+                            height: 47,
+                            child: MarketPerformanceStrip(
+                              history: dailyHistory.valueOrNull,
+                              latestPrice: livePrice,
+                              asOf: performanceAsOf,
+                              loading: dailyHistory.isLoading,
+                            ),
+                          ),
+                          if (tradeMarkers.isNotEmpty)
+                            SizedBox(
+                              height: 40,
+                              child: ListView.separated(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: tradeMarkers.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 8),
+                                itemBuilder: (_, i) => Chip(
+                                  avatar: const Icon(Icons.timer_outlined,
+                                      size: 15,
+                                      color: PrimeVestDesignSystem.positive),
+                                  label: Text(
+                                      '${tradeMarkers[i].label}  ${remaining(tradeMarkers[i].endsAt)}'),
+                                ),
+                              ),
+                            ),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    SizedBox(
+                      width: 320,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: PrimeVestDesignSystem.surfaceDark,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFF40382F)),
+                        ),
+                        child: SingleChildScrollView(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                              Row(children: [
+                                const Expanded(
+                                  child: Text('Place a trade',
+                                      style: TextStyle(
+                                          fontSize: 19,
+                                          fontWeight: FontWeight.w800)),
+                                ),
+                                const AccountModeSelector(),
+                              ]),
+                              const SizedBox(height: 4),
+                              Text(
+                                  demoSelected
+                                      ? 'Practice with virtual funds'
+                                      : 'Trade with your account balance',
+                                  style: const TextStyle(
+                                      color: PrimeVestDesignSystem.textMuted,
+                                      fontSize: 12)),
+                              const SizedBox(height: 24),
+                              const Text('AVAILABLE BALANCE',
+                                  style: TextStyle(
+                                      color: PrimeVestDesignSystem.textMuted,
+                                      letterSpacing: 1,
+                                      fontSize: 11)),
+                              const SizedBox(height: 6),
+                              Text(availableLabel,
+                                  style: const TextStyle(
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.w800,
+                                      color:
+                                          PrimeVestDesignSystem.primaryGold)),
+                              if (authenticated && serverWallet != null)
+                                Text('Locked: \$${serverWallet.locked}',
+                                    style: const TextStyle(
+                                        color: PrimeVestDesignSystem.textMuted,
+                                        fontSize: 12)),
+                              const Divider(height: 38),
+                              const Text('Investment',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 42,
+                                child: _TradeStepper(
+                                  label: 'Investment',
+                                  value: formatUsdAmount(amount),
+                                  onTap: submitting
+                                      ? null
+                                      : () => _editContractValue(false),
+                                  decrease: submitting || amount <= minimumStake
+                                      ? null
+                                      : () => setState(() => amount =
+                                          (amount - stakeStep).clamp(
+                                              minimumStake, double.infinity)),
+                                  increase: submitting
+                                      ? null
+                                      : () =>
+                                          setState(() => amount += stakeStep),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              const Text('Duration',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 42,
+                                child: _TradeStepper(
+                                  label: 'Duration',
+                                  value: durationSeconds >= 86400
+                                      ? '${durationSeconds ~/ 86400}d ${(durationSeconds % 86400) ~/ 3600}h'
+                                      : '${(durationSeconds ~/ 3600).toString().padLeft(2, '0')}:${((durationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(durationSeconds % 60).toString().padLeft(2, '0')}',
+                                  onTap: submitting
+                                      ? null
+                                      : () => _editContractValue(true),
+                                  decrease: submitting
+                                      ? null
+                                      : () => setState(() => durationSeconds =
+                                          (durationSeconds - 30)
+                                              .clamp(30, 31536000)),
+                                  increase: submitting
+                                      ? null
+                                      : () => setState(() => durationSeconds =
+                                          (durationSeconds + 30)
+                                              .clamp(30, 31536000)),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              if (!tradingAvailable)
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 12),
+                                  child: Text(
+                                      'Trading is not available in this mode.',
+                                      style: TextStyle(
+                                          color:
+                                              PrimeVestDesignSystem.negative)),
+                                ),
+                              SizedBox(
+                                height: 48,
+                                child: TradeButton(
+                                  label: submitting ? 'Please wait…' : 'BUY ↑',
+                                  icon: Icons.north_east,
+                                  onPressed: tradingAvailable &&
+                                          !submitting &&
+                                          executionPrice > 0
+                                      ? () => submit(true)
+                                      : null,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                height: 48,
+                                child: TradeButton(
+                                  label: submitting ? 'Please wait…' : 'SELL ↓',
+                                  icon: Icons.south_west,
+                                  negative: true,
+                                  onPressed: tradingAvailable &&
+                                          !submitting &&
+                                          executionPrice > 0
+                                      ? () => submit(false)
+                                      : null,
+                                ),
+                              ),
+                            ])),
+                      ),
+                    ),
+                  ]),
+            ),
+          ]),
+        ),
+      );
     }
 
     return SafeArea(
