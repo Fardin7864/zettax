@@ -1229,7 +1229,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                                 ),
                               ),
                               SizedBox(
-                                width: compactDesktop ? 150 : 230,
+                                width: compactDesktop ? 170 : 230,
                                 child: DropdownButtonFormField<String>(
                                   key: ValueKey('desktop-${asset.id}'),
                                   initialValue: asset.id,
@@ -1268,7 +1268,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                                         fontSize: 21,
                                         fontWeight: FontWeight.w800)),
                               ),
-                              const Spacer(),
+                              if (!compactDesktop) const Spacer(),
                               if (!compactDesktop)
                                 Text(
                                   displaySeries.valueOrNull?.freshness ==
