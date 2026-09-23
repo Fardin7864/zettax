@@ -18,8 +18,13 @@ import 'package:primevest_mobile/features/profile/language_screen.dart';
 import 'package:primevest_mobile/features/profile/security_screen.dart';
 import 'package:primevest_mobile/features/splash/splash_screen.dart';
 import 'package:primevest_mobile/l10n/app_localizations.dart';
+import 'package:primevest_mobile/app/web_url_strategy_stub.dart'
+    if (dart.library.js_interop) 'package:primevest_mobile/app/web_url_strategy.dart';
 
-void main() => runApp(const ProviderScope(child: PrimeVestApp()));
+void main() {
+  configureWebUrlStrategy();
+  runApp(const ProviderScope(child: PrimeVestApp()));
+}
 
 final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -28,11 +33,17 @@ final routerProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(sessionProvider);
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/splash',
+    initialLocation: kIsWeb ? '/' : '/splash',
     redirect: (_, state) {
       final location = state.matchedLocation;
       if (session.phase == SessionPhase.bootstrapping) {
+        if (kIsWeb && location != '/' && location != '/splash') return null;
         return location == '/splash' ? null : '/splash';
+      }
+      if (location == '/') {
+        return session.phase == SessionPhase.authenticated
+            ? '/home'
+            : '/welcome';
       }
       if (session.phase == SessionPhase.authenticated &&
           (location == '/splash' ||
@@ -44,6 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
       GoRoute(

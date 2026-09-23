@@ -48,148 +48,152 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         appBar: AppBar(),
         body: SafeArea(
           top: false,
-          child: Form(
-            key: formKey,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-              children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: ZettaxMark(height: 90),
-                ),
-                const SizedBox(height: 30),
-                Text(
-                  isRegister
-                      ? 'Create your account'
-                      : isForgot
-                          ? 'Reset your password'
-                          : 'Welcome back',
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
+          child: Center(
+              child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Form(
+              key: formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+                children: [
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: ZettaxMark(height: 90),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isForgot
-                      ? 'Password recovery is not exposed by the current server yet. No mock reset message will be presented as real.'
-                      : 'Secure authentication uses the Zettax server. You can still skip sign-in and use the isolated guest demo.',
-                  style: const TextStyle(
-                    color: PrimeVestDesignSystem.textMuted,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 26),
-                _field(
-                  identifier,
-                  isRegister ? 'Email address' : 'Email or mobile',
-                  Icons.alternate_email,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: _required,
-                ),
-                if (!isForgot) ...[
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: password,
-                    obscureText: obscurePassword,
-                    autofillHints: isRegister
-                        ? const [AutofillHints.newPassword]
-                        : const [AutofillHints.password],
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => obscurePassword = !obscurePassword,
-                        ),
-                        icon: Icon(
-                          obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                      ),
+                  const SizedBox(height: 30),
+                  Text(
+                    isRegister
+                        ? 'Create your account'
+                        : isForgot
+                            ? 'Reset your password'
+                            : 'Welcome back',
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
                     ),
-                    validator: isRegister ? _strongPassword : _required,
                   ),
-                ],
-                if (widget.mode == AuthMode.login)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => context.push('/forgot-password'),
-                      child: const Text('Forgot password?'),
+                  const SizedBox(height: 8),
+                  Text(
+                    isForgot
+                        ? 'Password recovery is not exposed by the current server yet. No mock reset message will be presented as real.'
+                        : 'Secure authentication uses the Zettax server. You can still skip sign-in and use the isolated guest demo.',
+                    style: const TextStyle(
+                      color: PrimeVestDesignSystem.textMuted,
+                      height: 1.45,
                     ),
-                  )
-                else
-                  const SizedBox(height: 22),
-                FilledButton(
-                  onPressed: submitting || isForgot ? null : _submit,
-                  child: submitting
-                      ? const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(isRegister
-                          ? 'Create account'
-                          : isForgot
-                              ? 'Unavailable until server support lands'
-                              : 'Sign in'),
-                ),
-                if (!isForgot) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Row(
-                      children: [
-                        Expanded(child: Divider()),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'or',
-                            style: TextStyle(
-                              color: PrimeVestDesignSystem.textMuted,
-                            ),
+                  ),
+                  const SizedBox(height: 26),
+                  _field(
+                    identifier,
+                    isRegister ? 'Email address' : 'Email or mobile',
+                    Icons.alternate_email,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: _required,
+                  ),
+                  if (!isForgot) ...[
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: password,
+                      obscureText: obscurePassword,
+                      autofillHints: isRegister
+                          ? const [AutofillHints.newPassword]
+                          : const [AutofillHints.password],
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => obscurePassword = !obscurePassword,
+                          ),
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                           ),
                         ),
-                        Expanded(child: Divider()),
-                      ],
+                      ),
+                      validator: isRegister ? _strongPassword : _required,
                     ),
-                  ),
-                  if (kIsWeb)
-                    WebGoogleButton(onAuthenticated: _completeWebGoogle)
+                  ],
+                  if (widget.mode == AuthMode.login)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.push('/forgot-password'),
+                        child: const Text('Forgot password?'),
+                      ),
+                    )
                   else
-                    OutlinedButton(
-                      onPressed: submitting ? null : _submitGoogle,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(54),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    const SizedBox(height: 22),
+                  FilledButton(
+                    onPressed: submitting || isForgot ? null : _submit,
+                    child: submitting
+                        ? const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(isRegister
+                            ? 'Create account'
+                            : isForgot
+                                ? 'Unavailable until server support lands'
+                                : 'Sign in'),
+                  ),
+                  if (!isForgot) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Row(
                         children: [
-                          Text(
-                            'G',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF4285F4),
+                          Expanded(child: Divider()),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'or',
+                              style: TextStyle(
+                                color: PrimeVestDesignSystem.textMuted,
+                              ),
                             ),
                           ),
-                          SizedBox(width: 12),
-                          Text('Continue with Google'),
+                          Expanded(child: Divider()),
                         ],
                       ),
                     ),
-                ],
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => context.go('/home'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
+                    if (kIsWeb)
+                      WebGoogleButton(onAuthenticated: _completeWebGoogle)
+                    else
+                      OutlinedButton(
+                        onPressed: submitting ? null : _submitGoogle,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(54),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'G',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF4285F4),
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Continue with Google'),
+                          ],
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () => context.go('/home'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(54),
+                    ),
+                    child: const Text('Skip and use guest demo'),
                   ),
-                  child: const Text('Skip and use guest demo'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          )),
         ),
       );
 

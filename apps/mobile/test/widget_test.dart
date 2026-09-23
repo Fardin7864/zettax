@@ -53,6 +53,8 @@ void main() {
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Continue with Google'), 200,
+        scrollable: find.byType(Scrollable).first);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Full name'), findsNothing);
     expect(find.text('Mobile number'), findsNothing);
