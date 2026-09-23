@@ -141,8 +141,12 @@ class AssetIcon extends StatelessWidget {
         'trx-usd' => ['$_crypto/trx.png'],
         'uni-usd' => ['$_crypto/uni.png'],
         'atom-usd' => ['$_crypto/atom.png'],
-        'near-usd' => ['https://cryptologos.cc/logos/near-protocol-near-logo.png?v=040'],
-        'shib-usd' => ['https://cryptologos.cc/logos/shiba-inu-shib-logo.png?v=040'],
+        'near-usd' => [
+            'https://cryptologos.cc/logos/near-protocol-near-logo.png?v=040'
+          ],
+        'shib-usd' => [
+            'https://cryptologos.cc/logos/shiba-inu-shib-logo.png?v=040'
+          ],
         'apt-usd' => ['https://cryptologos.cc/logos/aptos-apt-logo.png?v=040'],
         'sui-usd' => ['https://cryptologos.cc/logos/sui-sui-logo.png?v=040'],
         'pepe-usd' => ['https://cryptologos.cc/logos/pepe-pepe-logo.png?v=040'],
@@ -435,8 +439,8 @@ class TradeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FilledButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 26),
-        label: Text(label),
+        icon: Icon(icon, size: 18),
+        label: Text(label, style: const TextStyle(fontSize: 13)),
         style: FilledButton.styleFrom(
             backgroundColor: negative
                 ? const Color(0xFF44262C)

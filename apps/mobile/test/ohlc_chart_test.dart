@@ -3,6 +3,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:primevest_mobile/features/shared/ohlc_chart.dart';
 
 void main() {
+  test('zoom widens candle bodies without introducing inter-candle gaps', () {
+    final normal = chartBodyWidth(360, 42);
+    final zoomed = chartBodyWidth(360, 21);
+    expect(zoomed, greaterThan(normal * 1.8));
+    expect(normal / ((360 - 72) / 44), greaterThan(.97));
+    expect(zoomed / ((360 - 72) / 23), greaterThan(.97));
+  });
+
+  test('moving averages use only observed closing prices and volumes', () {
+    final observed = List.generate(
+        100,
+        (index) => ChartCandle(
+              time: DateTime.utc(2026, 9, 23).add(Duration(minutes: index)),
+              open: index.toDouble(),
+              high: index + 1.0,
+              low: index.toDouble(),
+              close: index + 1.0,
+              volume: index + 1.0,
+            ));
+    expect(candleAverage(observed, 99, 7), 97);
+    expect(candleAverage(observed, 99, 25), 88);
+    expect(candleAverage(observed, 99, 99), 51);
+    expect(candleAverage(observed, 99, 10, volume: true), 95.5);
+    expect(candleAverage(observed, 97, 99), isNull);
+  });
   final candles = List.generate(60, (index) {
     final open = 100 + index.toDouble();
     return ChartCandle(

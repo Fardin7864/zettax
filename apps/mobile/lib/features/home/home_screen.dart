@@ -374,10 +374,12 @@ class BalanceCard extends StatelessWidget {
           Row(children: [
             Expanded(
                 child: MiniStat(
-                    label: 'Available', value: usdFromCents(account.availablePaisa))),
+                    label: 'Available',
+                    value: usdFromCents(account.availablePaisa))),
             Expanded(
                 child: MiniStat(
-                    label: 'In positions', value: usdFromCents(account.lockedPaisa))),
+                    label: 'In positions',
+                    value: usdFromCents(account.lockedPaisa))),
           ]),
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -502,11 +504,11 @@ class _ChartPeriod {
 }
 
 const _chartPeriods = <_ChartPeriod>[
-  _ChartPeriod('1m', '1m', '1 minute', '1m', 90),
-  _ChartPeriod('5m', '5m', '5 minutes', '5m', 90),
-  _ChartPeriod('15m', '15m', '15 minutes', '15m', 90),
-  _ChartPeriod('1h', '1h', '1 hour', '1h', 90),
-  _ChartPeriod('1d', '1d', '1 day', '1d', 90),
+  _ChartPeriod('1m', '1m', '1 minute', '1m', 120),
+  _ChartPeriod('5m', '5m', '5 minutes', '5m', 120),
+  _ChartPeriod('15m', '15m', '15 minutes', '15m', 120),
+  _ChartPeriod('1h', '1h', '1 hour', '1h', 120),
+  _ChartPeriod('1d', '1d', '1 day', '1d', 120),
   _ChartPeriod('1W', '1W', '1 week', '1h', 168),
   _ChartPeriod('1M', '1M', '1 month', '4h', 180),
   _ChartPeriod('6M', '6M', '6 months', '1d', 180),
@@ -926,40 +928,40 @@ class _TradePageState extends ConsumerState<TradePage> {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
         child: Column(children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
                 color: PrimeVestDesignSystem.surfaceDark,
                 borderRadius: BorderRadius.circular(16)),
             child: Row(children: [
-              const ZettaxMark(height: 28),
-              const SizedBox(width: 10),
+              const ZettaxMark(height: 20),
+              const SizedBox(width: 6),
               Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Text('${mode.apiValue} BALANCE · USD',
                         style: const TextStyle(
-                            fontSize: 9,
+                            fontSize: 8,
                             color: PrimeVestDesignSystem.textMuted,
                             letterSpacing: 1)),
                     Text(availableLabel,
                         style: const TextStyle(
-                            fontSize: 23,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
                             color: PrimeVestDesignSystem.primaryGold)),
                     if (authenticated && serverWallet != null)
                       Text('Available · Locked \$${serverWallet.locked}',
                           style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 8,
                               color: PrimeVestDesignSystem.textMuted)),
                   ])),
               const AccountModeSelector(),
             ]),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 3),
           if (!tradingAvailable)
             Row(children: [
               Expanded(
@@ -978,6 +980,9 @@ class _TradePageState extends ConsumerState<TradePage> {
             ]),
           Row(children: [
             IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints:
+                    const BoxConstraints.tightFor(width: 32, height: 34),
                 tooltip: 'Favorite instrument',
                 onPressed: () =>
                     ref.read(marketProvider.notifier).toggleFavorite(asset.id),
@@ -994,13 +999,13 @@ class _TradePageState extends ConsumerState<TradePage> {
               decoration: const InputDecoration(
                   isDense: true,
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
               items: assets
                   .map((item) => DropdownMenuItem(
                       value: item.id,
                       child: Row(children: [
-                        AssetIcon(asset: item, size: 28),
-                        const SizedBox(width: 8),
+                        AssetIcon(asset: item, size: 22),
+                        const SizedBox(width: 6),
                         Flexible(
                             child: Text(
                           item.assetClass.toLowerCase() == 'crypto'
@@ -1015,14 +1020,14 @@ class _TradePageState extends ConsumerState<TradePage> {
                   : (value) => ref.read(selectedAssetProvider.notifier).state =
                       value ?? asset.id,
             )),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             const CurrencySelector(),
           ]),
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Row(children: [
             Text(displayPrice,
                 style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             const Spacer(),
             Text(
                 displaySeries.valueOrNull?.freshness == 'SAMPLED'
@@ -1040,7 +1045,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                                 ? '● Live'
                                 : '● Updating',
                 style: const TextStyle(
-                    color: PrimeVestDesignSystem.primaryGold, fontSize: 11)),
+                    color: PrimeVestDesignSystem.primaryGold, fontSize: 9)),
             PopupMenuButton<String>(
               key: const ValueKey('chart-period-menu'),
               initialValue: periodId,
@@ -1051,7 +1056,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                       value: value.id, child: Text(value.menuLabel)))
                   .toList(),
               child: Padding(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(3),
                   child: Text(period.shortLabel)),
             ),
           ]),
@@ -1088,12 +1093,12 @@ class _TradePageState extends ConsumerState<TradePage> {
                         style: const TextStyle(fontSize: 11)),
                   ),
                 )),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Row(children: [
             Expanded(
                 child: SizedBox(
               key: const ValueKey('trade-amount-control'),
-              height: 44,
+              height: 36,
               child: _TradeStepper(
                 label: 'Investment',
                 value: formatUsdAmount(amount.toDouble()),
@@ -1111,7 +1116,7 @@ class _TradePageState extends ConsumerState<TradePage> {
             Expanded(
                 child: SizedBox(
               key: const ValueKey('trade-duration-control'),
-              height: 44,
+              height: 36,
               child: _TradeStepper(
                 label: 'Duration',
                 value: durationSeconds >= 86400
@@ -1129,12 +1134,12 @@ class _TradePageState extends ConsumerState<TradePage> {
               ),
             )),
           ]),
-          const SizedBox(height: 5),
+          const SizedBox(height: 3),
           Row(children: [
             Expanded(
                 child: SizedBox(
                     key: const ValueKey('trade-sell-button'),
-                    height: 48,
+                    height: 40,
                     child: TradeButton(
                         label: submitting
                             ? 'Please wait…'
@@ -1152,7 +1157,7 @@ class _TradePageState extends ConsumerState<TradePage> {
             Expanded(
                 child: SizedBox(
                     key: const ValueKey('trade-buy-button'),
-                    height: 48,
+                    height: 40,
                     child: TradeButton(
                         label: submitting
                             ? 'Please wait…'
@@ -1166,7 +1171,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                             ? () => submit(true)
                             : null))),
           ]),
-          const SizedBox(height: 5),
+          const SizedBox(height: 2),
           Text(
               !tradingAvailable
                   ? 'Real trading is unavailable'
@@ -1221,7 +1226,8 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
           child: Row(children: [
             Expanded(
                 child: MiniStat(
-                    label: 'Available', value: '\$${wallet?.available ?? '—'}')),
+                    label: 'Available',
+                    value: '\$${wallet?.available ?? '—'}')),
             Expanded(
                 child: MiniStat(
                     label: 'Locked', value: '\$${wallet?.locked ?? '—'}')),
@@ -1343,10 +1349,11 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
           child: Row(children: [
             Expanded(
                 child: MiniStat(
-                    label: 'Available', value: usdFromCents(account.availablePaisa))),
+                    label: 'Available',
+                    value: usdFromCents(account.availablePaisa))),
             Expanded(
-                child:
-                    MiniStat(label: 'Locked', value: usdFromCents(account.lockedPaisa))),
+                child: MiniStat(
+                    label: 'Locked', value: usdFromCents(account.lockedPaisa))),
           ])),
       const SizedBox(height: 14),
       Padding(
@@ -1625,37 +1632,37 @@ class _TradeStepper extends StatelessWidget {
             border: Border.all(color: const Color(0xFF403829))),
         child: Row(children: [
           SizedBox(
-              width: 32,
+              width: 28,
               child: IconButton(
                   padding: EdgeInsets.zero,
                   constraints:
-                      const BoxConstraints.tightFor(width: 32, height: 40),
+                      const BoxConstraints.tightFor(width: 28, height: 34),
                   onPressed: decrease,
-                  icon: const Icon(Icons.remove, size: 18))),
+                  icon: const Icon(Icons.remove, size: 16))),
           Expanded(
               child: InkWell(
                   onTap: onTap,
                   child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 1),
                       child: Column(children: [
                         FittedBox(
                             child: Text(value,
                                 style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700))),
                         Text(label,
                             style: const TextStyle(
-                                fontSize: 9,
+                                fontSize: 8,
                                 color: PrimeVestDesignSystem.textMuted)),
                       ])))),
           SizedBox(
-              width: 32,
+              width: 28,
               child: IconButton(
                   padding: EdgeInsets.zero,
                   constraints:
-                      const BoxConstraints.tightFor(width: 32, height: 40),
+                      const BoxConstraints.tightFor(width: 28, height: 34),
                   onPressed: increase,
-                  icon: const Icon(Icons.add, size: 18))),
+                  icon: const Icon(Icons.add, size: 16))),
         ]),
       );
 }

@@ -10,6 +10,7 @@ class ChartCandle {
     required this.high,
     required this.low,
     required this.close,
+    this.volume,
   });
 
   factory ChartCandle.fromMarket(MarketCandle candle) => ChartCandle(
@@ -18,6 +19,7 @@ class ChartCandle {
         high: candle.high,
         low: candle.low,
         close: candle.close,
+        volume: candle.volume,
       );
 
   final DateTime time;
@@ -25,6 +27,24 @@ class ChartCandle {
   final double high;
   final double low;
   final double close;
+  final double? volume;
+}
+
+double? candleAverage(List<ChartCandle> candles, int index, int period,
+    {bool volume = false}) {
+  if (period <= 0 || index < period - 1 || index >= candles.length) return null;
+  var sum = 0.0;
+  for (var i = index - period + 1; i <= index; i++) {
+    final value = volume ? candles[i].volume : candles[i].close;
+    if (value == null || !value.isFinite) return null;
+    sum += value;
+  }
+  return sum / period;
+}
+
+double chartBodyWidth(double viewportWidth, int visibleCount) {
+  final plotWidth = max(0.0, viewportWidth - 72);
+  return max(1.0, plotWidth / max(1, visibleCount + 2) * .98);
 }
 
 class ChartTradeMarker {
@@ -135,7 +155,8 @@ class _OhlcChartState extends State<OhlcChart> {
                       minimum,
                       maxVisible,
                     );
-            final candleWidth = _canvasWidth / max(1, nextVisible);
+            final candleWidth =
+                max(1.0, (_canvasWidth - 68) / (nextVisible + 2));
             final movedCandles =
                 ((details.localFocalPoint.dx - _scaleStartFocal.dx) /
                         candleWidth)
@@ -186,7 +207,9 @@ class _OhlcChartState extends State<OhlcChart> {
             ),
             child: SizedBox(
               width: double.infinity,
-              height: widget.compact ? 190 : 270,
+              height: constraints.hasBoundedHeight
+                  ? constraints.maxHeight
+                  : (widget.compact ? 190 : 270),
             ),
           ),
         );
@@ -224,9 +247,12 @@ class _CandlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final visible = candles.sublist(startIndex, endIndex);
     if (visible.isEmpty) return;
-    const topPadding = 28.0;
-    const bottomPadding = 12.0;
-    final chartHeight = size.height - topPadding - bottomPadding;
+    const topPadding = 20.0;
+    const bottomPadding = 20.0;
+    final hasVolume = visible.any((candle) => candle.volume != null);
+    final volumeHeight = hasVolume ? max(44.0, size.height * .18) : 0.0;
+    final chartHeight =
+        max(40.0, size.height - topPadding - bottomPadding - volumeHeight);
     var minPrice = visible.map((candle) => candle.low).reduce(min);
     var maxPrice = visible.map((candle) => candle.high).reduce(max);
     final rawRange = maxPrice - minPrice;
@@ -243,7 +269,11 @@ class _CandlePainter extends CustomPainter {
       ..strokeWidth = 1;
     for (var row = 0; row <= 4; row++) {
       final position = topPadding + chartHeight * row / 4;
-      canvas.drawLine(Offset(0, position), Offset(size.width, position), grid);
+      canvas.drawLine(
+          Offset(0, position), Offset(size.width - 62, position), grid);
+      _label(canvas, maxPrice - range * row / 4,
+          Offset(size.width - 60, position - 6),
+          precision: precision);
     }
 
     final timeline = _CandleTimeline(visible, size.width);
@@ -252,6 +282,53 @@ class _CandlePainter extends CustomPainter {
             min(DateTime.now().millisecondsSinceEpoch, timeline.latestTime)))
         : timeline.candleX(index);
     final bodyWidth = timeline.bodyWidth;
+    if (endIndex == candles.length) {
+      final lastPrice = candles.last.close;
+      final priceY = y(lastPrice);
+      final currentPaint = Paint()
+        ..color = const Color(0xFFB4C5D8)
+        ..strokeWidth = 1;
+      for (var x = timeline.left; x < timeline.right; x += 8) {
+        canvas.drawLine(Offset(x, priceY),
+            Offset(min(x + 4, timeline.right), priceY), currentPaint);
+      }
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(size.width - 63, priceY - 10, 62, 20),
+            const Radius.circular(4)),
+        Paint()..color = const Color(0xFFB4C5D8),
+      );
+      _label(canvas, lastPrice, Offset(size.width - 60, priceY - 7),
+          precision: precision, dark: true);
+    }
+
+    for (final (period, color) in [
+      (7, const Color(0xFFF6C342)),
+      (25, const Color(0xFFEF5DA8)),
+      (99, const Color(0xFFA78BFA)),
+    ]) {
+      final path = Path();
+      var started = false;
+      for (var index = 0; index < visible.length; index++) {
+        final average = candleAverage(candles, startIndex + index, period);
+        if (average == null) continue;
+        final point = Offset(timeline.candleX(index), y(average));
+        if (!started) {
+          path.moveTo(point.dx, point.dy);
+          started = true;
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      if (started) {
+        canvas.drawPath(
+            path,
+            Paint()
+              ..color = color
+              ..strokeWidth = 1.4
+              ..style = PaintingStyle.stroke);
+      }
+    }
     if (lineMode) {
       final line = Path();
       for (var index = 0; index < visible.length; index++) {
@@ -324,6 +401,69 @@ class _CandlePainter extends CustomPainter {
         );
       }
     }
+
+    if (hasVolume) {
+      final volumeTop = topPadding + chartHeight + 10;
+      final volumeBottom = size.height - bottomPadding;
+      final maxVolume =
+          max(1.0, visible.map((candle) => candle.volume ?? 0).reduce(max));
+      for (var index = 0; index < visible.length; index++) {
+        final volume = visible[index].volume;
+        if (volume == null) continue;
+        final height = (volume / maxVolume * (volumeBottom - volumeTop))
+            .clamp(0.0, volumeBottom - volumeTop);
+        final up = visible[index].close >= visible[index].open;
+        canvas.drawRect(
+          Rect.fromLTWH(timeline.candleX(index) - bodyWidth / 2,
+              volumeBottom - height, bodyWidth, height),
+          Paint()
+            ..color = up ? const Color(0x9930B68C) : const Color(0x99D84E6A),
+        );
+      }
+      for (final (period, color) in [
+        (5, const Color(0xFFF6C342)),
+        (10, const Color(0xFFA78BFA)),
+      ]) {
+        final path = Path();
+        var started = false;
+        for (var index = 0; index < visible.length; index++) {
+          final average =
+              candleAverage(candles, startIndex + index, period, volume: true);
+          if (average == null) continue;
+          final point = Offset(timeline.candleX(index),
+              volumeBottom - average / maxVolume * (volumeBottom - volumeTop));
+          if (!started) {
+            path.moveTo(point.dx, point.dy);
+            started = true;
+          } else {
+            path.lineTo(point.dx, point.dy);
+          }
+        }
+        if (started) {
+          canvas.drawPath(
+              path,
+              Paint()
+                ..color = color
+                ..strokeWidth = 1.2
+                ..style = PaintingStyle.stroke);
+        }
+      }
+      _text(
+          canvas,
+          'VOL ${_compact(visible.last.volume ?? 0)}  MA(5) ${_compact(candleAverage(candles, endIndex - 1, 5, volume: true))}  MA(10) ${_compact(candleAverage(candles, endIndex - 1, 10, volume: true))}',
+          Offset(6, volumeTop - 10),
+          const Color(0xFFD5C6AD),
+          9);
+    }
+
+    _text(canvas, _time(visible.first.time), Offset(6, size.height - 14),
+        const Color(0xFF92969F), 9);
+    _text(
+        canvas,
+        _time(visible.last.time),
+        Offset(max(6, timeline.right - 83), size.height - 14),
+        const Color(0xFF92969F),
+        9);
 
     for (var markerIndex = 0;
         markerIndex < tradeMarkers.length;
@@ -412,6 +552,40 @@ class _CandlePainter extends CustomPainter {
     label.paint(canvas, const Offset(6, 6));
   }
 
+  void _label(Canvas canvas, double value, Offset offset,
+      {required int precision, bool dark = false}) {
+    _text(canvas, value.toStringAsFixed(precision), offset,
+        dark ? const Color(0xFF16202B) : const Color(0xFFAAB0BA), 9);
+  }
+
+  double _text(Canvas canvas, String value, Offset offset, Color color,
+      double fontSize) {
+    final painter = TextPainter(
+      text: TextSpan(
+          text: value,
+          style: TextStyle(
+              color: color, fontSize: fontSize, fontWeight: FontWeight.w600)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    painter.paint(canvas, offset);
+    return painter.width;
+  }
+
+  String _compact(double? value) {
+    if (value == null) return '—';
+    if (value >= 1000000000) {
+      return '${(value / 1000000000).toStringAsFixed(2)}B';
+    }
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(2)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(2)}K';
+    return value.toStringAsFixed(2);
+  }
+
+  String _time(DateTime time) =>
+      '${time.month.toString().padLeft(2, '0')}/${time.day.toString().padLeft(2, '0')} '
+      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
   @override
   bool shouldRepaint(covariant _CandlePainter oldDelegate) =>
       oldDelegate.candles != candles ||
@@ -425,7 +599,7 @@ class _CandlePainter extends CustomPainter {
 class _CandleTimeline {
   _CandleTimeline(this.candles, this.width)
       : left = 8,
-        right = max(8, width - 8) {
+        right = max(8, width - 64) {
     final lastTime = candles.last.time.millisecondsSinceEpoch;
     sampleStep = candles.length > 1
         ? max(
@@ -437,32 +611,36 @@ class _CandleTimeline {
       DateTime.now().millisecondsSinceEpoch,
       lastTime + sampleStep,
     );
-    final futureSlots = max(6, (candles.length * .5).round());
-    firstTime = candles.first.time.millisecondsSinceEpoch;
-    finalTime = latestTime + sampleStep * futureSlots;
-    timeRange = max(1, finalTime - firstTime);
-    final spacing = candles.length > 1
-        ? (xFor(candles[1].time) - xFor(candles[0].time)).abs()
-        : (right - left) / (futureSlots + 1);
-    bodyWidth = max(2.0, min(11.0, spacing * .58));
+    const futureSlots = 2;
+    spacing = (right - left) / max(1, candles.length + futureSlots);
+    bodyWidth = chartBodyWidth(width, candles.length);
   }
 
   final List<ChartCandle> candles;
   final double width;
   final double left;
   final double right;
-  late final int firstTime;
   late final int latestTime;
-  late final int finalTime;
   late final int sampleStep;
-  late final int timeRange;
   late final double bodyWidth;
+  late final double spacing;
 
-  double xFor(DateTime time) => (left +
-          (time.millisecondsSinceEpoch - firstTime) /
-              timeRange *
-              (right - left))
-      .clamp(left, right);
+  double xFor(DateTime time) {
+    final target = time.millisecondsSinceEpoch;
+    if (target <= candles.first.time.millisecondsSinceEpoch) return candleX(0);
+    for (var index = 1; index < candles.length; index++) {
+      final previous = candles[index - 1].time.millisecondsSinceEpoch;
+      final next = candles[index].time.millisecondsSinceEpoch;
+      if (target <= next) {
+        final fraction = (target - previous) / max(1, next - previous);
+        return candleX(index - 1) + spacing * fraction;
+      }
+    }
+    final extra = (target - candles.last.time.millisecondsSinceEpoch) /
+        sampleStep *
+        spacing;
+    return (candleX(candles.length - 1) + extra).clamp(left, right);
+  }
 
-  double candleX(int index) => xFor(candles[index].time);
+  double candleX(int index) => left + spacing * (index + .5);
 }

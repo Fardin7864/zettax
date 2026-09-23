@@ -5,6 +5,55 @@ import 'package:primevest_mobile/features/shared/ohlc_chart.dart';
 import 'package:primevest_mobile/market/market_data_api.dart';
 
 void main() {
+  testWidgets('shows observed averages and volume on a narrow chart',
+      (tester) async {
+    final now = DateTime.utc(2026, 9, 23);
+    final candles = List.generate(
+      120,
+      (index) => MarketCandle(
+        openTime: now.add(Duration(minutes: index)),
+        closeTime: now.add(Duration(minutes: index + 1)),
+        open: 100 + index.toDouble(),
+        high: 102 + index.toDouble(),
+        low: 99 + index.toDouble(),
+        close: 101 + index.toDouble(),
+        volume: index + 1.0,
+      ),
+    );
+    final series = MarketCandleSeries(
+      instrumentId: 'btc-usd',
+      symbol: 'BTC/USD',
+      providerId: 'test',
+      provider: 'test',
+      sourceSymbol: 'BTCUSDT',
+      freshness: 'DISPLAY_LIVE',
+      requestedInterval: '1m',
+      effectiveInterval: '1m',
+      providerTimestamp: now,
+      executionPrice: false,
+      executionEligible: false,
+      isSyntheticOhlc: false,
+      receivedAt: now,
+      nextCursor: null,
+      delivery: 'WEBSOCKET',
+      candles: candles,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 320,
+          height: 280,
+          child: LiveTradeChart(series: series, precision: 2),
+        ),
+      ),
+    ));
+    expect(find.text('MA(7): 217.00'), findsOneWidget);
+    expect(find.text('MA(25): 208.00'), findsOneWidget);
+    expect(find.text('MA(99): 171.00'), findsOneWidget);
+    expect(find.text('Loaded 120 bars'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'live candlesticks handle flat prices, multiple expiries and new observations',
       (tester) async {
