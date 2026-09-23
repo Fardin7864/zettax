@@ -948,7 +948,7 @@ class _TradePageState extends ConsumerState<TradePage> {
     return SafeArea(
       bottom: true,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(2, 3, 2, 3),
+        padding: const EdgeInsets.fromLTRB(2, 3, 0, 3),
         child: Column(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

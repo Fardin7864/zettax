@@ -280,8 +280,8 @@ class _CandlePainter extends CustomPainter {
       final position = topPadding + chartHeight * row / 4;
       canvas.drawLine(
           Offset(0, position), Offset(size.width - 62, position), grid);
-      _label(canvas, maxPrice - range * row / 4,
-          Offset(size.width - 60, position - 6),
+      _label(
+          canvas, maxPrice - range * row / 4, Offset(size.width, position - 6),
           precision: precision);
     }
 
@@ -303,11 +303,11 @@ class _CandlePainter extends CustomPainter {
       }
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(size.width - 63, priceY - 10, 62, 20),
+            Rect.fromLTWH(size.width - 62, priceY - 10, 62, 20),
             const Radius.circular(4)),
         Paint()..color = const Color(0xFFB4C5D8),
       );
-      _label(canvas, lastPrice, Offset(size.width - 60, priceY - 7),
+      _label(canvas, lastPrice, Offset(size.width, priceY - 7),
           precision: precision, dark: true);
     }
 
@@ -563,8 +563,19 @@ class _CandlePainter extends CustomPainter {
 
   void _label(Canvas canvas, double value, Offset offset,
       {required int precision, bool dark = false}) {
-    _text(canvas, value.toStringAsFixed(precision), offset,
-        dark ? const Color(0xFF16202B) : const Color(0xFFAAB0BA), 9);
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value.toStringAsFixed(precision),
+        style: TextStyle(
+          color: dark ? const Color(0xFF16202B) : const Color(0xFFAAB0BA),
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    painter.paint(canvas, Offset(offset.dx - painter.width, offset.dy));
   }
 
   double _text(Canvas canvas, String value, Offset offset, Color color,
