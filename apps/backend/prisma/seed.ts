@@ -5,6 +5,7 @@ import {
   Prisma,
   PrismaClient,
 } from "@prisma/client";
+import { instruments as displayInstruments } from "../src/markets/instruments";
 
 const prisma = new PrismaClient();
 
@@ -198,6 +199,11 @@ async function seed(): Promise<void> {
     update: { name: "Bangladeshi Taka", precision: 2 },
     create: { code: "BDT", name: "Bangladeshi Taka", precision: 2 },
   });
+  await prisma.currency.upsert({
+    where: { code: "USD" },
+    update: { name: "US Dollar", precision: 2 },
+    create: { code: "USD", name: "US Dollar", precision: 2 },
+  });
 
   await prisma.complianceConfig.upsert({
     where: { id: "active" },
@@ -309,6 +315,35 @@ async function seed(): Promise<void> {
         maximumTrade: new Prisma.Decimal("100000"),
         spreadBps: assetClass === AssetClass.FOREX ? 2 : 10,
         maxQuoteAgeMs: 5000,
+      },
+    });
+  }
+  for (const item of displayInstruments.filter(
+    (entry) => entry.assetClass === "CRYPTO" &&
+      !["btc-usd", "eth-usd", "sol-usd", "xrp-usd"].includes(entry.id),
+  )) {
+    const instrument = await prisma.instrument.upsert({
+      where: { slug: item.id },
+      update: {},
+      create: {
+        slug: item.id,
+        symbol: item.symbol,
+        name: item.name,
+        assetClass: AssetClass.CRYPTO,
+        baseAsset: item.baseAsset,
+        quoteAsset: item.quoteAsset,
+        pricePrecision: item.pricePrecision,
+        quantityPrecision: item.quantityPrecision,
+      },
+    });
+    await prisma.instrumentConfig.upsert({
+      where: { instrumentId: instrument.id },
+      update: {},
+      create: {
+        instrumentId: instrument.id,
+        minimumTrade: new Prisma.Decimal("1"),
+        maximumTrade: new Prisma.Decimal("100000"),
+        spreadBps: 10,
       },
     });
   }

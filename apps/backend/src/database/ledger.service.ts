@@ -56,7 +56,7 @@ export class LedgerService {
   async lockWallet(
     tx: Prisma.TransactionClient,
     accountId: string,
-    currencyCode = "BDT",
+    currencyCode = "USD",
   ): Promise<Wallet> {
     await tx.$queryRaw`SELECT id FROM wallets WHERE account_id = ${accountId}::uuid AND currency_code = ${currencyCode} FOR UPDATE`;
     const wallet = await tx.wallet.findUnique({
@@ -76,7 +76,7 @@ export class LedgerService {
     tx: Prisma.TransactionClient,
     accountId: string,
     mode: AccountMode,
-    currencyCode = "BDT",
+    currencyCode = "USD",
   ): Promise<{ control: string; available: string; locked: string }> {
     const currency = await tx.currency.findUnique({
       where: { code: currencyCode },

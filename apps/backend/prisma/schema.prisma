@@ -666,6 +666,8 @@ model DepositRequest {
   paymentMethodId       String             @map("payment_method_id") @db.Uuid
   idempotencyKey        String             @map("idempotency_key")
   amount                Decimal            @db.Decimal(18, 2)
+  usdAmount             Decimal            @default(0) @map("usd_amount") @db.Decimal(18, 2)
+  conversionRate        Decimal            @default(125) @map("conversion_rate_bdt_per_usd") @db.Decimal(12, 4)
   senderMobile          String             @map("sender_mobile")
   providerTransactionId String             @map("provider_transaction_id")
   evidenceObjectKey     String?            @map("evidence_object_key")
@@ -699,6 +701,8 @@ model WithdrawalRequest {
   paymentMethodId         String             @map("payment_method_id") @db.Uuid
   idempotencyKey          String             @map("idempotency_key")
   amount                  Decimal            @db.Decimal(18, 2)
+  usdAmount               Decimal            @default(0) @map("usd_amount") @db.Decimal(18, 2)
+  conversionRate          Decimal            @default(118) @map("conversion_rate_bdt_per_usd") @db.Decimal(12, 4)
   receiverMobile          String             @map("receiver_mobile")
   providerTransactionId   String?            @map("provider_transaction_id")
   evidenceObjectKey       String?            @map("evidence_object_key")

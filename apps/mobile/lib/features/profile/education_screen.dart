@@ -40,7 +40,7 @@ class EducationScreen extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                    'A very small favorable price move can produce less than ৳0.01 of profit. Payouts are rounded to the nearest paisa, so the recorded result can be a win while the money returned is unchanged.'),
+                    'A very small favorable price move can produce less than \$0.01 of profit. Payouts are rounded to the nearest cent, so the recorded result can be a win while the money returned is unchanged.'),
               )
             ],
           ),

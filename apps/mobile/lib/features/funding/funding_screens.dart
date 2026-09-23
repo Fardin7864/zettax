@@ -138,7 +138,7 @@ class _FundingHistoryState extends ConsumerState<FundingHistoryScreen> {
                           ? PrimeVestDesignSystem.primaryGold
                               .withValues(alpha: 0.12)
                           : null,
-                      title: Text('৳${row['amount']} · ${row['status']}'),
+                      title: Text('${row['usdAmount'] == null ? '' : '\$${row['usdAmount']} · '}৳${row['amount']} · ${row['status']}'),
                       subtitle: Text(
                           '${row['providerTransactionId'] ?? row['receiverMobile'] ?? ''}\n${row['rejectionReason'] ?? 'Updated: ${row['updatedAt'] ?? row['createdAt']}'}'),
                       isThreeLine: true);
@@ -224,10 +224,13 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
         _ReceivingCard(method: selected, reveal: data.submissionsEnabled),
         const SizedBox(height: 22),
         const _Title('2. Enter transfer details'),
+        Text('Deposit rate: ৳${data.depositBdtPerUsd} = \$1.00. The approved BDT amount is converted to USD in your wallet.',
+            style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
         const SizedBox(height: 10),
         TextField(
           controller: amount,
           enabled: data.submissionsEnabled,
+          onChanged: (_) => setState(() {}),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: 'Amount (BDT)',
@@ -237,6 +240,8 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
                 : 'Allowed: ৳${selected.minimum} – ৳${selected.maximum}',
           ),
         ),
+        if ((double.tryParse(amount.text) ?? 0) > 0)
+          Text('Estimated USD credit after approval: \$${((double.tryParse(amount.text) ?? 0) / (double.tryParse(data.depositBdtPerUsd) ?? 125)).toStringAsFixed(2)}'),
         const SizedBox(height: 12),
         TextField(
           controller: sender,
@@ -330,6 +335,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
       await repository.createDeposit(
           methodId: submittedMethod,
           amount: submittedAmount,
+          expectedConversionRate: ref.read(depositMethodsProvider).valueOrNull?.depositBdtPerUsd,
           senderMobile: submittedSender,
           transactionId: submittedTransaction,
           evidenceObjectKey: key);
@@ -343,7 +349,10 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
             'Deposit submitted. Your claim is awaiting independent transfer verification and approval.');
       }
     } catch (error) {
-      if (mounted) _notice(_message(error));
+      if (mounted) {
+        ref.invalidate(depositMethodsProvider);
+        _notice(_message(error));
+      }
     } finally {
       if (mounted) setState(() => submitting = false);
     }
@@ -425,13 +434,19 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           onSelected: enabled ? (id) => setState(() => selectedId = id) : null,
         ),
         const SizedBox(height: 18),
+        Text('Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
+            style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
+        if ((double.tryParse(amount.text) ?? 0) > 0)
+          Text('Estimated payout: ৳${((double.tryParse(amount.text) ?? 0) * (double.tryParse(data.withdrawalBdtPerUsd) ?? 118)).toStringAsFixed(2)}'),
+        const SizedBox(height: 10),
         TextField(
           controller: amount,
           enabled: enabled,
+          onChanged: (_) => setState(() {}),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
-            labelText: 'Withdrawal amount (BDT)',
-            prefixText: '৳ ',
+            labelText: 'Withdrawal amount (USD)',
+            prefixText: '\$ ',
           ),
         ),
         const SizedBox(height: 12),
@@ -486,6 +501,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       await ref.read(fundingRepositoryProvider).createWithdrawal(
             methodId: selectedId!,
             amount: amount.text.trim(),
+            expectedConversionRate: ref.read(withdrawalMethodsProvider).valueOrNull?.withdrawalBdtPerUsd,
             receiverMobile: receiver.text.trim(),
           );
       if (mounted) {
@@ -497,7 +513,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         ref.read(fundingRealtimeRevisionProvider.notifier).state++;
       }
     } catch (error) {
-      if (mounted) _notice(_message(error));
+      if (mounted) {
+        ref.invalidate(withdrawalMethodsProvider);
+        _notice(_message(error));
+      }
     } finally {
       if (mounted) setState(() => submitting = false);
     }
@@ -528,9 +547,9 @@ class _FundingWalletBalances extends ConsumerWidget {
                     child: Row(children: [
                       Expanded(
                           child:
-                              Text('Available\n৳${wallet?.available ?? '—'}')),
+                              Text('Available\n\$${wallet?.available ?? '—'}')),
                       Expanded(
-                          child: Text('Locked\n৳${wallet?.locked ?? '—'}')),
+                          child: Text('Locked\n\$${wallet?.locked ?? '—'}')),
                     ])));
           },
         );

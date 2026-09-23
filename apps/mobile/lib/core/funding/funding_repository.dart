@@ -63,8 +63,9 @@ class FundingRepository {
           receiveTimeout: const Duration(seconds: 60));
       await _pending.clear(_key);
     } on ApiFailure catch (error) {
-      if (command['uncertain'] != true &&
-          (error.statusCode == 400 || error.statusCode == 403)) {
+      if (error.code == 'CONVERSION_RATE_CHANGED' ||
+          (command['uncertain'] != true &&
+          (error.statusCode == 400 || error.statusCode == 403))) {
         await _pending.clear(_key);
       } else {
         await _pending.write(_key, jsonEncode({...command, 'uncertain': true}));
@@ -126,12 +127,14 @@ class FundingRepository {
   Future<void> createDeposit(
           {required String methodId,
           required String amount,
+          String? expectedConversionRate,
           required String senderMobile,
           required String transactionId,
           String? evidenceObjectKey}) =>
       _submit('/deposits', {
         'paymentMethodId': methodId,
         'amount': amount,
+        if (expectedConversionRate != null) 'expectedConversionRate': expectedConversionRate,
         'senderMobile': _mobile(senderMobile),
         'providerTransactionId': transactionId,
         if (evidenceObjectKey != null) 'evidenceObjectKey': evidenceObjectKey
@@ -159,6 +162,7 @@ class FundingRepository {
   Future<void> createWithdrawal({
     required String methodId,
     required String amount,
+    String? expectedConversionRate,
     required String receiverMobile,
   }) async {
     await _submit(
@@ -166,6 +170,7 @@ class FundingRepository {
       {
         'paymentMethodId': methodId,
         'amount': amount,
+        if (expectedConversionRate != null) 'expectedConversionRate': expectedConversionRate,
         'receiverMobile': _mobile(receiverMobile),
       },
     );

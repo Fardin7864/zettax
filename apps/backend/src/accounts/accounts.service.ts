@@ -46,7 +46,7 @@ export class AccountsService {
       where: { userId },
       orderBy: { mode: "asc" },
       include: {
-        wallets: { orderBy: { currencyCode: "asc" } },
+        wallets: { where: { currencyCode: "USD" } },
         _count: { select: { positions: { where: { status: "OPEN" } } } },
       },
     });
@@ -87,7 +87,7 @@ export class AccountsService {
     const cursor = encodedCursor ? this.decodeCursor(encodedCursor) : undefined;
     const rows = await this.prisma.ledgerTransaction.findMany({
       where: {
-        entries: { some: { ledgerAccount: { accountId: account.id } } },
+        entries: { some: { ledgerAccount: { accountId: account.id, currencyCode: "USD" } } },
         ...(cursor
           ? {
               OR: [
@@ -110,7 +110,7 @@ export class AccountsService {
         postedAt: true,
         reversalOfId: true,
         entries: {
-          where: { ledgerAccount: { accountId: account.id } },
+          where: { ledgerAccount: { accountId: account.id, currencyCode: "USD" } },
           orderBy: { createdAt: "asc" },
           select: {
             id: true,
@@ -200,7 +200,7 @@ export class AccountsService {
         );
       }
 
-      const wallet = await this.ledger.lockWallet(tx, account.id, "BDT");
+      const wallet = await this.ledger.lockWallet(tx, account.id, "USD");
       if (!wallet.lockedProjection.isZero()) {
         throw new ApiErrorException(
           "DEMO_RESET_BLOCKED",
@@ -307,13 +307,13 @@ export class AccountsService {
   private demoInitialBalance(): Prisma.Decimal {
     try {
       const value = new Prisma.Decimal(
-        this.config.get<string>("DEMO_INITIAL_BALANCE_BDT") ?? "100000.00",
+        this.config.get<string>("DEMO_INITIAL_BALANCE_USD") ?? "1000.00",
       );
       if (value.isPositive() && value.decimalPlaces() <= 2) return value;
     } catch {
       // Invalid development configuration safely falls back to the contract.
     }
-    return new Prisma.Decimal("100000.00");
+    return new Prisma.Decimal("1000.00");
   }
 
   private async withSerializableRetry<T>(

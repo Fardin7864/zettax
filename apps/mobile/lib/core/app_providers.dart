@@ -245,7 +245,7 @@ final accountRealtimeBridgeProvider =
               payload['type'] == 'DepositRequest' ? 'Deposit' : 'Withdrawal';
           final status = payload['status']?.toString() ?? 'UPDATED';
           final amount = payload['amount']?.toString();
-          final formattedAmount = amount == null ? '' : ' ৳$amount';
+          final formattedAmount = amount == null ? '' : ' \$$amount';
           final statusText = status.toLowerCase().replaceAll('_', ' ');
           ref.read(fundingRealtimeNoticeProvider.notifier).state =
               FundingRealtimeNotice(

@@ -7,7 +7,9 @@ function setup(status: WithdrawalStatus, virtual = true) {
     id: "withdrawal-1",
     userId: "user-1",
     accountId: "account-1",
-    amount: new Prisma.Decimal(100),
+    amount: new Prisma.Decimal(118),
+    usdAmount: new Prisma.Decimal(1),
+    conversionRate: new Prisma.Decimal(118),
     status,
     reviewStartedBy: "admin-1",
     approvedBy: null as string | null,
@@ -69,7 +71,7 @@ describe("virtual withdrawal Done", () => {
     expect(result.status).toBe(WithdrawalStatus.PAID);
     expect(tx.wallet.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { lockedProjection: { decrement: new Prisma.Decimal(100) } },
+        data: { lockedProjection: { decrement: new Prisma.Decimal(1) } },
       }),
     );
     expect(ledger.post).toHaveBeenCalledWith(
@@ -82,7 +84,7 @@ describe("virtual withdrawal Done", () => {
       tx,
       "user-1",
       expect.objectContaining({
-        payload: expect.objectContaining({ status: "PAID", amount: "100.00" }),
+        payload: expect.objectContaining({ status: "PAID", amount: "1.00", amountBdt: "118.00" }),
       }),
     );
     await service.markWithdrawalPaid(

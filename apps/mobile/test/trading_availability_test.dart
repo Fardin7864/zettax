@@ -6,7 +6,7 @@ void main() {
       () {
     final config = PublicSystemConfig.fromJson({
       'complianceMode': 'SANDBOX',
-      'demo': {'initialBalanceBdt': '100000.00'},
+      'demo': {'initialBalanceUsd': '1000.00'},
       'real': {
         'trading': true,
         'deposits': true,

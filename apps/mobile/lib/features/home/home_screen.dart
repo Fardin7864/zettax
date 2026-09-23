@@ -236,15 +236,15 @@ class ServerBalanceCard extends StatelessWidget {
               color: PrimeVestDesignSystem.positive, size: 18),
         ]),
         const SizedBox(height: 8),
-        Text('৳$equity',
+        Text('\$$equity',
             style: const TextStyle(
                 fontSize: 34,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -1.2)),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: MiniStat(label: 'Available', value: '৳$available')),
-          Expanded(child: MiniStat(label: 'In positions', value: '৳$locked')),
+          Expanded(child: MiniStat(label: 'Available', value: '\$$available')),
+          Expanded(child: MiniStat(label: 'In positions', value: '\$$locked')),
         ]),
         const SizedBox(height: 18),
         FilledButton.icon(
@@ -299,7 +299,7 @@ class RealBalanceCard extends ConsumerWidget {
               color: Color(0xFF7DD3FC), size: 18),
         ]),
         const SizedBox(height: 8),
-        Text(wallet == null ? '—' : '৳${wallet!.available}',
+        Text(wallet == null ? '—' : '\$${wallet!.available}',
             style: const TextStyle(
                 fontSize: 34,
                 fontWeight: FontWeight.w800,
@@ -309,11 +309,11 @@ class RealBalanceCard extends ConsumerWidget {
           Expanded(
               child: MiniStat(
                   label: 'Available',
-                  value: wallet == null ? '—' : '৳${wallet!.available}')),
+                  value: wallet == null ? '—' : '\$${wallet!.available}')),
           Expanded(
               child: MiniStat(
                   label: 'Locked',
-                  value: wallet == null ? '—' : '৳${wallet!.locked}')),
+                  value: wallet == null ? '—' : '\$${wallet!.locked}')),
         ]),
         const SizedBox(height: 18),
         Row(children: [
@@ -365,7 +365,7 @@ class BalanceCard extends StatelessWidget {
                 color: PrimeVestDesignSystem.textMuted, size: 18),
           ]),
           const SizedBox(height: 8),
-          Text(bdt(account.availablePaisa + account.lockedPaisa),
+          Text(usdFromCents(account.availablePaisa + account.lockedPaisa),
               style: const TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
@@ -374,10 +374,10 @@ class BalanceCard extends StatelessWidget {
           Row(children: [
             Expanded(
                 child: MiniStat(
-                    label: 'Available', value: bdt(account.availablePaisa))),
+                    label: 'Available', value: usdFromCents(account.availablePaisa))),
             Expanded(
                 child: MiniStat(
-                    label: 'In positions', value: bdt(account.lockedPaisa))),
+                    label: 'In positions', value: usdFromCents(account.lockedPaisa))),
           ]),
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -546,7 +546,7 @@ class _TradePageState extends ConsumerState<TradePage> {
     return contractTimeRemaining(end);
   }
 
-  double amount = 1000;
+  double amount = 10;
   int durationSeconds = 30;
   String periodId = '1m';
 
@@ -561,7 +561,7 @@ class _TradePageState extends ConsumerState<TradePage> {
     final result = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-              title: Text(duration ? 'Contract duration' : 'Stake in BDT'),
+              title: Text(duration ? 'Contract duration' : 'Stake in USD'),
               content: Form(
                   key: form,
                   child: TextFormField(
@@ -572,7 +572,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                     decoration: InputDecoration(
                         helperText: duration
                             ? 'Seconds: 30–31,536,000 (365 days)'
-                            : 'Minimum ৳${minimumStake.toStringAsFixed(2)} · up to available balance'),
+                            : 'Minimum \$${minimumStake.toStringAsFixed(2)} · up to available balance'),
                     validator: (value) {
                       if (duration) {
                         final parsed = int.tryParse(value ?? '');
@@ -589,7 +589,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                       return parsed == null ||
                               !parsed.isFinite ||
                               parsed < minimumStake
-                          ? 'Minimum stake is ৳${minimumStake.toStringAsFixed(2)}'
+                          ? 'Minimum stake is \$${minimumStake.toStringAsFixed(2)}'
                           : null;
                     },
                   )),
@@ -663,12 +663,10 @@ class _TradePageState extends ConsumerState<TradePage> {
     final availableLabel = authenticated
         ? serverWallet == null
             ? '—'
-            : '৳${serverWallet.available}'
+            : '\$${serverWallet.available}'
         : demoSelected
-            ? bdt(available)
+            ? usdFromCents(available)
             : 'Sign in';
-    final currency = ref.watch(displayCurrencyProvider);
-    final usdBdt = ref.watch(usdBdtRateProvider).valueOrNull;
     final displayPrice = livePrice == null
         ? '—'
         : asset.assetClass.toLowerCase() == 'crypto'
@@ -677,8 +675,6 @@ class _TradePageState extends ConsumerState<TradePage> {
                 value: livePrice,
                 precision: asset.precision,
                 quoteAsset: asset.quoteAsset,
-                currency: currency,
-                usdBdt: usdBdt,
               );
     final serverPositions = authenticated
         ? ref.watch(positionsProvider(mode)).valueOrNull ?? const []
@@ -706,11 +702,9 @@ class _TradePageState extends ConsumerState<TradePage> {
           : estimate.pnl < 0
               ? PrimeVestDesignSystem.negative
               : PrimeVestDesignSystem.primaryGold;
-      final stake = formatBdtAmount(entry.stake, DisplayCurrency.bdt, null);
-      final current =
-          formatBdtAmount(estimate.returnAmount, DisplayCurrency.bdt, null);
-      final pnl =
-          formatBdtAmount(estimate.pnl.abs(), DisplayCurrency.bdt, null);
+      final stake = formatUsdAmount(entry.stake);
+      final current = formatUsdAmount(estimate.returnAmount);
+      final pnl = formatUsdAmount(estimate.pnl.abs());
       final pnlSign = estimate.pnl > 0
           ? '+'
           : estimate.pnl < 0
@@ -891,7 +885,7 @@ class _TradePageState extends ConsumerState<TradePage> {
               builder: (context) => AlertDialog(
                     title: const Text('Resolve previous trade'),
                     content: Text(
-                        'The result of your previous ${body['direction']} ${body['instrumentId']} trade for ৳${body['investmentAmount']} is uncertain.\n\nRetry the same request? If it was already accepted, no second trade is opened. If it was not accepted, retrying can open it now with its original amount and duration.'),
+                        'The result of your previous ${body['direction']} ${body['instrumentId']} trade for \$${body['investmentAmount']} is uncertain.\n\nRetry the same request? If it was already accepted, no second trade is opened. If it was not accepted, retrying can open it now with its original amount and duration.'),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(context, false),
@@ -946,7 +940,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text('${mode.apiValue} BALANCE · BDT',
+                    Text('${mode.apiValue} BALANCE · USD',
                         style: const TextStyle(
                             fontSize: 9,
                             color: PrimeVestDesignSystem.textMuted,
@@ -957,7 +951,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                             fontWeight: FontWeight.w800,
                             color: PrimeVestDesignSystem.primaryGold)),
                     if (authenticated && serverWallet != null)
-                      Text('Available · Locked ৳${serverWallet.locked}',
+                      Text('Available · Locked \$${serverWallet.locked}',
                           style: const TextStyle(
                               fontSize: 10,
                               color: PrimeVestDesignSystem.textMuted)),
@@ -1102,7 +1096,7 @@ class _TradePageState extends ConsumerState<TradePage> {
               height: 44,
               child: _TradeStepper(
                 label: 'Investment',
-                value: formatBdtAmount(amount.toDouble(), currency, usdBdt),
+                value: formatUsdAmount(amount.toDouble()),
                 onTap: submitting ? null : () => _editContractValue(false),
                 decrease: submitting || amount <= minimumStake
                     ? null
@@ -1227,10 +1221,10 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
           child: Row(children: [
             Expanded(
                 child: MiniStat(
-                    label: 'Available', value: '৳${wallet?.available ?? '—'}')),
+                    label: 'Available', value: '\$${wallet?.available ?? '—'}')),
             Expanded(
                 child: MiniStat(
-                    label: 'Locked', value: '৳${wallet?.locked ?? '—'}')),
+                    label: 'Locked', value: '\$${wallet?.locked ?? '—'}')),
           ]),
         ),
         const SizedBox(height: 12),
@@ -1256,7 +1250,7 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
                           : null;
                       final pnlLabel = settledPnl == null
                           ? ''
-                          : ' • P/L ${settledPnl > 0 ? '+' : settledPnl < 0 ? '-' : ''}৳${settledPnl.abs().toStringAsFixed(2)}';
+                          : ' • P/L ${settledPnl > 0 ? '+' : settledPnl < 0 ? '-' : ''}\$${settledPnl.abs().toStringAsFixed(2)}';
                       return SizedBox(
                         width: 260,
                         child: ActivityCard(
@@ -1265,10 +1259,10 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
                           badge: '${contract.direction} • ${contract.result}',
                           value: contract.result == 'PENDING'
                               ? contractTimeRemaining(contract.expiryTimestamp)
-                              : 'Returned ৳${contract.payoutAmount ?? '—'}',
+                              : 'Returned \$${contract.payoutAmount ?? '—'}',
                           positive: contract.result == 'WIN',
                           subtitle:
-                              'Stake ৳${contract.investmentAmount}$pnlLabel • Fee ৳${contract.feeAmount ?? '0.00'}',
+                              'Stake \$${contract.investmentAmount}$pnlLabel • Fee \$${contract.feeAmount ?? '0.00'}',
                         ),
                       );
                     },
@@ -1307,7 +1301,7 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
                           asset: assetFor(position.instrumentId),
                           title: position.instrumentId.toUpperCase(),
                           badge: '${position.side} • ${position.status}',
-                          value: '৳${pnl.toStringAsFixed(2)}',
+                          value: '\$${pnl.toStringAsFixed(2)}',
                           positive: pnl >= 0,
                           subtitle:
                               'Entry ${position.averageEntry} • Qty ${position.quantity}',
@@ -1349,10 +1343,10 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
           child: Row(children: [
             Expanded(
                 child: MiniStat(
-                    label: 'Available', value: bdt(account.availablePaisa))),
+                    label: 'Available', value: usdFromCents(account.availablePaisa))),
             Expanded(
                 child:
-                    MiniStat(label: 'Locked', value: bdt(account.lockedPaisa))),
+                    MiniStat(label: 'Locked', value: usdFromCents(account.lockedPaisa))),
           ])),
       const SizedBox(height: 14),
       Padding(
@@ -1391,10 +1385,10 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
                       asset: item,
                       title: item?.symbol ?? position.assetId,
                       badge: position.side.name.toUpperCase(),
-                      value: bdt(pnl),
+                      value: usdFromCents(pnl),
                       positive: pnl >= 0,
                       subtitle:
-                          'Entry ${position.entryPrice.toStringAsFixed(item?.precision ?? 2)} • ${bdt(position.stakePaisa)}',
+                          'Entry ${position.entryPrice.toStringAsFixed(item?.precision ?? 2)} • ${usdFromCents(position.stakePaisa)}',
                       action: TextButton(
                           onPressed: () => ref
                               .read(demoAccountProvider.notifier)
@@ -1425,7 +1419,7 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
                           : contract.result.name.toUpperCase(),
                       positive: contract.result == ContractResult.win,
                       subtitle:
-                          '${bdt(contract.investmentPaisa)} • 82% payout');
+                          '${usdFromCents(contract.investmentPaisa)} • 82% payout');
                 }),
         _ => account.history.isEmpty
             ? const EmptyState(
@@ -1442,7 +1436,7 @@ class _PortfolioPageState extends ConsumerState<PortfolioPage> {
                       title: asset(record.position.assetId)?.symbol ??
                           record.position.assetId,
                       badge: record.position.side.name.toUpperCase(),
-                      value: bdt(record.pnlPaisa),
+                      value: usdFromCents(record.pnlPaisa),
                       positive: record.pnlPaisa >= 0,
                       subtitle: 'Closed ${timeAgo(record.closedAt)}');
                 }),
@@ -1593,7 +1587,7 @@ class ProfilePage extends ConsumerWidget {
         builder: (context) => AlertDialog(
               title: const Text('Reset demo account?'),
               content: const Text(
-                  'This clears all demo positions and restores your virtual balance to ৳100,000.00.'),
+                  'This clears all demo positions and restores your virtual balance to \$1,000.00.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),

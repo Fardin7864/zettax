@@ -146,7 +146,7 @@ class PublicSystemConfig {
     final real = requireObject(json, 'real');
     return PublicSystemConfig(
       complianceMode: requireString(json, 'complianceMode'),
-      demoInitialBalance: requireString(demo, 'initialBalanceBdt'),
+      demoInitialBalance: requireString(demo, 'initialBalanceUsd'),
       realTrading: real['trading'] == true,
       realDeposits: real['deposits'] == true,
       realWithdrawals: real['withdrawals'] == true,
@@ -168,7 +168,7 @@ class PublicSystemConfig {
 
   static PublicSystemConfig get failClosed => PublicSystemConfig(
         complianceMode: 'DEMO_ONLY',
-        demoInitialBalance: '100000.00',
+        demoInitialBalance: '1000.00',
         realTrading: false,
         realDeposits: false,
         realWithdrawals: false,

@@ -46,7 +46,7 @@ class DemoTransactionsScreen extends ConsumerWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text('${item.id} • ${timeAgo(item.createdAt)}'),
                   trailing: Text(
-                    bdt(item.amountPaisa),
+                    usdFromCents(item.amountPaisa),
                     style: TextStyle(
                       color: item.amountPaisa >= 0
                           ? PrimeVestDesignSystem.positive

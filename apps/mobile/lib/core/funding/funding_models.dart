@@ -38,15 +38,21 @@ class FundingMethods {
     required this.submissionsEnabled,
     required this.methods,
     required this.virtualFunding,
+    this.depositBdtPerUsd = '125',
+    this.withdrawalBdtPerUsd = '118',
   });
 
   factory FundingMethods.fromJson(JsonObject json) => FundingMethods(
         submissionsEnabled: json['submissionsEnabled'] == true,
         methods: requireList(json['methods'], FundingMethod.fromJson),
         virtualFunding: json['virtualFunding'] == true,
+        depositBdtPerUsd: json['depositBdtPerUsd']?.toString() ?? '125',
+        withdrawalBdtPerUsd: json['withdrawalBdtPerUsd']?.toString() ?? '118',
       );
 
   final bool submissionsEnabled;
   final List<FundingMethod> methods;
   final bool virtualFunding;
+  final String depositBdtPerUsd;
+  final String withdrawalBdtPerUsd;
 }

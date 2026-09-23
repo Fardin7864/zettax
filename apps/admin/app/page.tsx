@@ -41,6 +41,7 @@ const areas = [
   "deposits",
   "withdrawals",
   "payment-methods",
+  "currency-conversion",
   "treasury",
   "release",
   "trading",
@@ -243,6 +244,8 @@ export default function Operations() {
   const [requestImage, setRequestImage] = useState("");
   const [requestImageError, setRequestImageError] = useState("");
   const [requestImageLoading, setRequestImageLoading] = useState(false);
+  const [depositRate, setDepositRate] = useState("125.0000");
+  const [withdrawalRate, setWithdrawalRate] = useState("118.0000");
   const fundingDetailsOpen =
     selected !== null && ["deposits", "withdrawals"].includes(area);
   useEffect(() => {
@@ -384,11 +387,12 @@ export default function Operations() {
         "deposits",
         "withdrawals",
         "payment-methods",
+        "currency-conversion",
         "treasury",
         "release",
         "changes",
       ].includes(area)
-        ? `/admin/${area}`
+        ? area === "currency-conversion" ? "/admin/conversion-rates" : `/admin/${area}`
         : area === "trading"
           ? "/admin/trading-settings"
           : `/admin/records/${area}?page=${page}&search=${encodeURIComponent(search)}`;
@@ -407,6 +411,10 @@ export default function Operations() {
       ]);
       if (version === listVersion.current) {
         setData(result);
+        if (area === "currency-conversion" && !Array.isArray(result) && result) {
+          setDepositRate(str(result.depositBdtPerUsd));
+          setWithdrawalRate(str(result.withdrawalBdtPerUsd));
+        }
         if (area === "overview") setAnalytics(dashboard as Analytics | null);
         if (
           ["deposits", "withdrawals"].includes(area) &&
@@ -1010,6 +1018,37 @@ export default function Operations() {
             {message}
           </div>
         )}
+        {area === "currency-conversion" && data && !Array.isArray(data) && (
+          <section className="panel">
+            <h2>Customer wallet conversion</h2>
+            <p>Customer balances and trades are in USD. Payment requests remain in BDT. Each submitted request retains the rate in effect when it was created; changing these rates affects new requests only.</p>
+            <form onSubmit={async (event) => {
+              event.preventDefault();
+              setBusy(true);
+              setMessage("");
+              try {
+                await request("/admin/conversion-rates", "POST", {
+                  depositBdtPerUsd: depositRate,
+                  withdrawalBdtPerUsd: withdrawalRate,
+                });
+                await load();
+                setMessage("Conversion rates saved for new requests.");
+              } catch (error) {
+                setMessage(error instanceof Error ? error.message : "Could not save rates.");
+              } finally {
+                setBusy(false);
+              }
+            }}>
+              <label>Deposit: BDT paid for $1 USD
+                <input type="number" min="1" max="9999" step="0.0001" required value={depositRate} onChange={(event) => setDepositRate(event.target.value)} />
+              </label>
+              <label>Withdrawal: BDT paid out for $1 USD
+                <input type="number" min="1" max="9999" step="0.0001" required value={withdrawalRate} onChange={(event) => setWithdrawalRate(event.target.value)} />
+              </label>
+              <button className="primary" type="submit" disabled={busy}>Save conversion rates</button>
+            </form>
+          </section>
+        )}
         {area === "overview" && data && !Array.isArray(data) && (
           <>
             <div className="ops-metrics">
@@ -1027,8 +1066,8 @@ export default function Operations() {
                   </article>
                   <article>
                     <p>Trade volume</p>
-                    <strong>{money(analytics.tradeVolume)}</strong>
-                    <small>Virtual BDT staked</small>
+                    <strong>${analytics.tradeVolume}</strong>
+                    <small>USD staked (customer wallet currency)</small>
                   </article>
                   <article>
                     <p>Credited deposits</p>

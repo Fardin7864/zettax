@@ -54,9 +54,9 @@ export class ComplianceService {
       complianceMode: this.mode,
       demo: {
         enabled: true,
-        initialBalanceBdt: this.stringValue(
-          "DEMO_INITIAL_BALANCE_BDT",
-          "100000.00",
+        initialBalanceUsd: this.stringValue(
+          "DEMO_INITIAL_BALANCE_USD",
+          "1000.00",
         ),
       },
       real: {

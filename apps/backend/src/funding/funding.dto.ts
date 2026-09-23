@@ -12,9 +12,14 @@ import {
 } from "class-validator";
 
 export class CreateDepositDto {
-  @ApiProperty({ example: "1000.00" })
+  @ApiProperty({ example: "1250.00", description: "BDT amount sent" })
   @IsString()
   amount!: string;
+
+  @ApiPropertyOptional({ description: "BDT per USD rate shown to the customer" })
+  @IsOptional()
+  @IsString()
+  expectedConversionRate?: string;
 
   @ApiProperty({ format: "uuid" })
   @IsUUID()
@@ -43,9 +48,14 @@ export class RejectDepositDto {
 }
 
 export class CreateWithdrawalDto {
-  @ApiProperty({ example: "500.00" })
+  @ApiProperty({ example: "10.00", description: "USD amount to deduct" })
   @IsString()
   amount!: string;
+
+  @ApiPropertyOptional({ description: "BDT per USD rate shown to the customer" })
+  @IsOptional()
+  @IsString()
+  expectedConversionRate?: string;
 
   @ApiProperty({ format: "uuid" })
   @IsUUID()
@@ -54,6 +64,16 @@ export class CreateWithdrawalDto {
   @ApiProperty({ example: "+8801712345678" })
   @IsString()
   receiverMobile!: string;
+}
+
+export class UpdateConversionRatesDto {
+  @ApiProperty({ example: "125.00" })
+  @IsString()
+  depositBdtPerUsd!: string;
+
+  @ApiProperty({ example: "118.00" })
+  @IsString()
+  withdrawalBdtPerUsd!: string;
 }
 
 export class RejectWithdrawalDto {

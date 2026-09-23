@@ -22,7 +22,16 @@ import type {
   CreateWithdrawalDto,
   MarkWithdrawalPaidDto,
   UpdatePaymentMethodDto,
+  UpdateConversionRatesDto,
 } from "./funding.dto";
+import {
+  bdtFromWithdrawal,
+  DEPOSIT_RATE_KEY,
+  parseConversionRate,
+  readConversionRates,
+  usdFromDeposit,
+  WITHDRAWAL_RATE_KEY,
+} from "./conversion-rates";
 import { fundingError } from "./funding.errors";
 import {
   canReleaseWithdrawal,
@@ -32,6 +41,7 @@ import {
 import {
   normalizeProviderTransactionId,
   parseBdt,
+  parseUsd,
   validateBangladeshMobile,
 } from "./funding.validation";
 
@@ -153,8 +163,8 @@ export class FundingService {
     const submissionsEnabled =
       this.compliance.isEnabled(feature) &&
       (this.compliance.isVirtual || (await this.controls.readiness()).ready);
-    return this.prisma.paymentMethod
-      .findMany({
+    const [methods, rates] = await Promise.all([
+      this.prisma.paymentMethod.findMany({
         where: { isEnabled: true, type: { in: fundingMethodTypes } },
         select: {
           id: true,
@@ -169,12 +179,70 @@ export class FundingService {
           feeValue: true,
         },
         orderBy: { displayName: "asc" },
-      })
-      .then((methods) => ({
-        submissionsEnabled,
-        virtualFunding: this.compliance.isVirtual,
-        methods,
-      }));
+      }),
+      readConversionRates(this.prisma),
+    ]);
+    return {
+      submissionsEnabled,
+      virtualFunding: this.compliance.isVirtual,
+      methods,
+      depositBdtPerUsd: rates.depositBdtPerUsd.toFixed(4),
+      withdrawalBdtPerUsd: rates.withdrawalBdtPerUsd.toFixed(4),
+    };
+  }
+
+  async conversionRates() {
+    const rates = await readConversionRates(this.prisma);
+    return {
+      depositBdtPerUsd: rates.depositBdtPerUsd.toFixed(4),
+      withdrawalBdtPerUsd: rates.withdrawalBdtPerUsd.toFixed(4),
+    };
+  }
+
+  async updateConversionRates(
+    adminId: string,
+    input: UpdateConversionRatesDto,
+    audit: AuditContext,
+  ) {
+    const deposit = parseConversionRate(input.depositBdtPerUsd);
+    const withdrawal = parseConversionRate(input.withdrawalBdtPerUsd);
+    return this.prisma.$transaction(async (tx) => {
+      const previous = await readConversionRates(tx);
+      for (const [key, value] of [
+        [DEPOSIT_RATE_KEY, deposit.toFixed(4)],
+        [WITHDRAWAL_RATE_KEY, withdrawal.toFixed(4)],
+      ] as const) {
+        await tx.systemConfig.upsert({
+          where: { key },
+          create: { key, value, updatedBy: adminId },
+          update: { value, updatedBy: adminId },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorType: ActorType.ADMIN,
+          actorAdminId: adminId,
+          action: "FUNDING_CONVERSION_RATES_UPDATED",
+          resourceType: "SystemConfig",
+          resourceId: "funding.conversionRates",
+          requestId: audit.requestId,
+          ipAddress: audit.ipAddress ?? null,
+          userAgent: audit.userAgent ?? null,
+          previousValue: {
+            depositBdtPerUsd: previous.depositBdtPerUsd.toFixed(4),
+            withdrawalBdtPerUsd: previous.withdrawalBdtPerUsd.toFixed(4),
+          },
+          newValue: {
+            depositBdtPerUsd: deposit.toFixed(4),
+            withdrawalBdtPerUsd: withdrawal.toFixed(4),
+          },
+        },
+      });
+      return {
+        depositBdtPerUsd: deposit.toFixed(4),
+        withdrawalBdtPerUsd: withdrawal.toFixed(4),
+      };
+    });
   }
 
   listPaymentMethodsForAdmin() {
@@ -317,6 +385,12 @@ export class FundingService {
           method.minimumDeposit,
           method.maximumDeposit,
         );
+        const rate = (await readConversionRates(tx)).depositBdtPerUsd;
+        if (input.expectedConversionRate !== undefined &&
+            !parseConversionRate(input.expectedConversionRate).equals(rate)) {
+          fundingError("CONVERSION_RATE_CHANGED", "Deposit rate changed. Refresh and review the new USD credit before retrying.", HttpStatus.CONFLICT);
+        }
+        const usdAmount = usdFromDeposit(amount, rate);
 
         const evidence = input.evidenceObjectKey
           ? await tx.evidenceFile.findUnique({
@@ -343,6 +417,8 @@ export class FundingService {
             paymentMethodId: method.id,
             idempotencyKey,
             amount,
+            usdAmount,
+            conversionRate: rate,
             senderMobile,
             providerTransactionId,
             evidenceObjectKey: input.evidenceObjectKey ?? null,
@@ -499,12 +575,12 @@ export class FundingService {
         {
           ledgerAccountId: accounts.cash,
           direction: LedgerDirection.DEBIT,
-          amount: deposit.amount,
+          amount: deposit.usdAmount,
         },
         {
           ledgerAccountId: accounts.available,
           direction: LedgerDirection.CREDIT,
-          amount: deposit.amount,
+          amount: deposit.usdAmount,
         },
       ];
       const ledger = await this.ledger.post(tx, {
@@ -518,15 +594,15 @@ export class FundingService {
         where: {
           accountId_currencyCode: {
             accountId: deposit.accountId,
-            currencyCode: "BDT",
+            currencyCode: "USD",
           },
         },
         create: {
           accountId: deposit.accountId,
-          currencyCode: "BDT",
-          availableProjection: deposit.amount,
+          currencyCode: "USD",
+          availableProjection: deposit.usdAmount,
         },
-        update: { availableProjection: { increment: deposit.amount } },
+        update: { availableProjection: { increment: deposit.usdAmount } },
       });
       const updated = await tx.depositRequest.update({
         where: { id: deposit.id },
@@ -611,7 +687,7 @@ export class FundingService {
   ) {
     this.assertFeature("WITHDRAWALS");
     if (!this.compliance.isVirtual) await this.controls.requireReady();
-    const amount = parseBdt(input.amount);
+    const usdAmount = parseUsd(input.amount);
     const receiverMobile = validateBangladeshMobile(input.receiverMobile);
     return this.withSerializableRetry(async (tx) => {
       const existing = await tx.withdrawalRequest.findUnique({
@@ -620,7 +696,7 @@ export class FundingService {
       if (existing) {
         if (
           existing.paymentMethodId !== input.paymentMethodId ||
-          !existing.amount.equals(amount) ||
+          !existing.usdAmount.equals(usdAmount) ||
           existing.receiverMobile !== receiverMobile
         ) {
           fundingError(
@@ -676,6 +752,12 @@ export class FundingService {
         );
 
       const method = await this.requirePaymentMethod(tx, input.paymentMethodId);
+      const rate = (await readConversionRates(tx)).withdrawalBdtPerUsd;
+      if (input.expectedConversionRate !== undefined &&
+          !parseConversionRate(input.expectedConversionRate).equals(rate)) {
+        fundingError("CONVERSION_RATE_CHANGED", "Withdrawal rate changed. Refresh and review the new BDT payout before retrying.", HttpStatus.CONFLICT);
+      }
+      const amount = bdtFromWithdrawal(usdAmount, rate);
       this.assertWithinLimits(
         amount,
         method.minimumDeposit,
@@ -686,11 +768,11 @@ export class FundingService {
         where: {
           accountId_currencyCode: {
             accountId: account.id,
-            currencyCode: "BDT",
+            currencyCode: "USD",
           },
         },
       });
-      if (!wallet || wallet.availableProjection.lessThan(amount)) {
+      if (!wallet || wallet.availableProjection.lessThan(usdAmount)) {
         fundingError(
           "INSUFFICIENT_FUNDS",
           "Available balance is insufficient",
@@ -707,20 +789,20 @@ export class FundingService {
           {
             ledgerAccountId: accounts.available,
             direction: LedgerDirection.DEBIT,
-            amount,
+            amount: usdAmount,
           },
           {
             ledgerAccountId: accounts.locked,
             direction: LedgerDirection.CREDIT,
-            amount,
+            amount: usdAmount,
           },
         ],
       });
       const updatedWallet = await tx.wallet.updateMany({
-        where: { id: wallet.id, availableProjection: { gte: amount } },
+        where: { id: wallet.id, availableProjection: { gte: usdAmount } },
         data: {
-          availableProjection: { decrement: amount },
-          lockedProjection: { increment: amount },
+          availableProjection: { decrement: usdAmount },
+          lockedProjection: { increment: usdAmount },
         },
       });
       if (updatedWallet.count !== 1) {
@@ -737,6 +819,8 @@ export class FundingService {
           paymentMethodId: method.id,
           idempotencyKey,
           amount,
+          usdAmount,
+          conversionRate: rate,
           receiverMobile,
           lockTransactionId: lockLedger.id,
         },
@@ -749,7 +833,8 @@ export class FundingService {
         resourceType: "WithdrawalRequest",
         resourceId: withdrawal.id,
         newValue: {
-          amount: amount.toFixed(2),
+          amountBdt: amount.toFixed(2),
+          amountUsd: usdAmount.toFixed(2),
           status: withdrawal.status,
           lockTransactionId: lockLedger.id,
         },
@@ -965,22 +1050,22 @@ export class FundingService {
             {
               ledgerAccountId: accounts.locked,
               direction: LedgerDirection.DEBIT,
-              amount: withdrawal.amount,
+              amount: withdrawal.usdAmount,
             },
             {
               ledgerAccountId: accounts.cash,
               direction: LedgerDirection.CREDIT,
-              amount: withdrawal.amount,
+              amount: withdrawal.usdAmount,
             },
           ],
         });
         const wallet = await tx.wallet.updateMany({
           where: {
             accountId: withdrawal.accountId,
-            currencyCode: "BDT",
-            lockedProjection: { gte: withdrawal.amount },
+            currencyCode: "USD",
+            lockedProjection: { gte: withdrawal.usdAmount },
           },
-          data: { lockedProjection: { decrement: withdrawal.amount } },
+          data: { lockedProjection: { decrement: withdrawal.usdAmount } },
         });
         if (wallet.count !== 1) {
           fundingError(
@@ -1107,12 +1192,12 @@ export class FundingService {
       const wallet = await tx.wallet.updateMany({
         where: {
           accountId: withdrawal.accountId,
-          currencyCode: "BDT",
-          lockedProjection: { gte: withdrawal.amount },
+          currencyCode: "USD",
+          lockedProjection: { gte: withdrawal.usdAmount },
         },
         data: {
-          availableProjection: { increment: withdrawal.amount },
-          lockedProjection: { decrement: withdrawal.amount },
+          availableProjection: { increment: withdrawal.usdAmount },
+          lockedProjection: { decrement: withdrawal.usdAmount },
         },
       });
       if (wallet.count !== 1) {
@@ -1312,8 +1397,10 @@ export class FundingService {
           mode: "REAL",
           fundingId: funding.id,
           type: input.resourceType,
-          amount: funding.amount.toFixed(2),
-          currency: "BDT",
+          amount: funding.usdAmount.toFixed(2),
+          currency: "USD",
+          amountBdt: funding.amount.toFixed(2),
+          conversionRateBdtPerUsd: funding.conversionRate.toFixed(4),
           status: funding.status,
         },
       });

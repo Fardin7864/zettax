@@ -35,6 +35,7 @@ import {
   RejectDepositDto,
   RejectWithdrawalDto,
   UpdatePaymentMethodDto,
+  UpdateConversionRatesDto,
   WithdrawalTransitionDto,
 } from "./funding.dto";
 import { fundingError } from "./funding.errors";
@@ -235,6 +236,29 @@ export class FundingController {
   async adminPaymentMethods(@Req() request: PrincipalRequest) {
     this.admin(request, "funding.configure");
     return { data: await this.funding.listPaymentMethodsForAdmin() };
+  }
+
+  @Get("admin/conversion-rates")
+  @UseGuards(AdminGuard)
+  async adminConversionRates(@Req() request: PrincipalRequest) {
+    this.admin(request, "funding.configure");
+    return { data: await this.funding.conversionRates() };
+  }
+
+  @Post("admin/conversion-rates")
+  @UseGuards(AdminGuard)
+  async updateConversionRates(
+    @Req() request: PrincipalRequest,
+    @Body() body: UpdateConversionRatesDto,
+  ) {
+    const adminId = this.admin(request, "funding.configure");
+    return {
+      data: await this.funding.updateConversionRates(
+        adminId,
+        body,
+        this.auditContext(request),
+      ),
+    };
   }
 
   @UseGuards(AdminGuard)

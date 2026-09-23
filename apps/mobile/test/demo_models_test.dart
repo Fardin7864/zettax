@@ -22,8 +22,8 @@ void main() {
     expect(assets.single.price, 64000.25);
   });
 
-  test('formats BDT from integer paisa without floating-point storage', () {
-    expect(bdt(10000000), '৳100,000.00');
-    expect(bdt(-125050), '-৳1,250.50');
+  test('formats USD from integer cents without floating-point storage', () {
+    expect(usdFromCents(10000000), '\$100,000.00');
+    expect(usdFromCents(-125050), '-\$1,250.50');
   });
 }

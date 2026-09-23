@@ -57,6 +57,20 @@ export function parseBdt(value: string): Prisma.Decimal {
   return amount;
 }
 
+export function parseUsd(value: string): Prisma.Decimal {
+  if (!moneyPattern.test(value)) {
+    fundingError(
+      "AMOUNT_INVALID",
+      "Amount must be a positive USD value with at most two decimals",
+    );
+  }
+  const amount = new Prisma.Decimal(value);
+  if (amount.lessThanOrEqualTo(0)) {
+    fundingError("AMOUNT_INVALID", "Amount must be greater than zero");
+  }
+  return amount;
+}
+
 export type BalancedEntry = {
   direction: "DEBIT" | "CREDIT";
   amount: Prisma.Decimal;

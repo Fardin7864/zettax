@@ -536,13 +536,13 @@ export class AuthService {
   private demoInitialBalance(): Prisma.Decimal {
     try {
       const configured = new Prisma.Decimal(
-        this.config.get<string>("DEMO_INITIAL_BALANCE_BDT") ?? "100000.00",
+        this.config.get<string>("DEMO_INITIAL_BALANCE_USD") ?? "1000.00",
       );
       if (configured.isPositive()) return configured;
     } catch {
       // Invalid runtime configuration fails back to the documented demo value.
     }
-    return new Prisma.Decimal("100000.00");
+    return new Prisma.Decimal("1000.00");
   }
 
   private async createAccounts(
@@ -550,8 +550,8 @@ export class AuthService {
     userId: string,
   ): Promise<void> {
     await transaction.currency.upsert({
-      where: { code: "BDT" },
-      create: { code: "BDT", name: "Bangladeshi Taka", precision: 2 },
+      where: { code: "USD" },
+      create: { code: "USD", name: "US Dollar", precision: 2 },
       update: {},
     });
     const demoAccount = await transaction.account.create({
@@ -565,12 +565,12 @@ export class AuthService {
       data: [
         {
           accountId: demoAccount.id,
-          currencyCode: "BDT",
+          currencyCode: "USD",
           availableProjection: demoBalance,
         },
         {
           accountId: realAccount.id,
-          currencyCode: "BDT",
+          currencyCode: "USD",
           availableProjection: new Prisma.Decimal(0),
         },
       ],

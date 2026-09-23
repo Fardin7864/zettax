@@ -118,7 +118,7 @@ final marketProvider =
 
 class DemoAccountState {
   const DemoAccountState({
-    this.availablePaisa = 10000000,
+    this.availablePaisa = 100000,
     this.positions = const [],
     this.history = const [],
     this.contracts = const [],
@@ -253,7 +253,7 @@ class DemoAccountController extends StateNotifier<DemoAccountState> {
 
   void reset() {
     state = DemoAccountState(
-        transactions: [_transaction('Demo account reset', 10000000)]);
+        transactions: [_transaction('Demo account reset', 100000)]);
   }
 
   void _settleExpired() {
@@ -314,12 +314,12 @@ final demoAccountProvider =
     StateNotifierProvider<DemoAccountController, DemoAccountState>(
         DemoAccountController.new);
 
-String bdt(int paisa) {
+String usdFromCents(int paisa) {
   final sign = paisa < 0 ? '-' : '';
   final value = paisa.abs() / 100;
   final parts = value.toStringAsFixed(2).split('.');
   final digits = parts.first;
   final grouped =
       digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => ',');
-  return '$sign৳$grouped.${parts.last}';
+  return '$sign\$$grouped.${parts.last}';
 }

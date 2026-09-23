@@ -56,8 +56,6 @@ class MarketTile extends ConsumerWidget {
             candles.first.close != 0
         ? (candles.last.close - candles.first.close) / candles.first.close * 100
         : null;
-    final currency = ref.watch(displayCurrencyProvider);
-    final bdtRate = ref.watch(usdBdtRateProvider).valueOrNull;
     final positive = (change ?? 0) >= 0;
     return Material(
       color: Colors.transparent,
@@ -89,8 +87,6 @@ class MarketTile extends ConsumerWidget {
                           value: price,
                           precision: asset.precision,
                           quoteAsset: asset.quoteAsset,
-                          currency: currency,
-                          usdBdt: bdtRate,
                         ),
                   style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 3),
@@ -135,6 +131,21 @@ class AssetIcon extends StatelessWidget {
         'eth-usd' => ['$_crypto/eth.png'],
         'sol-usd' => ['$_crypto/sol.png'],
         'xrp-usd' => ['$_crypto/xrp.png'],
+        'ada-usd' => ['$_crypto/ada.png'],
+        'doge-usd' => ['$_crypto/doge.png'],
+        'avax-usd' => ['$_crypto/avax.png'],
+        'dot-usd' => ['$_crypto/dot.png'],
+        'link-usd' => ['$_crypto/link.png'],
+        'ltc-usd' => ['$_crypto/ltc.png'],
+        'bch-usd' => ['$_crypto/bch.png'],
+        'trx-usd' => ['$_crypto/trx.png'],
+        'uni-usd' => ['$_crypto/uni.png'],
+        'atom-usd' => ['$_crypto/atom.png'],
+        'near-usd' => ['https://cryptologos.cc/logos/near-protocol-near-logo.png?v=040'],
+        'shib-usd' => ['https://cryptologos.cc/logos/shiba-inu-shib-logo.png?v=040'],
+        'apt-usd' => ['https://cryptologos.cc/logos/aptos-apt-logo.png?v=040'],
+        'sui-usd' => ['https://cryptologos.cc/logos/sui-sui-logo.png?v=040'],
+        'pepe-usd' => ['https://cryptologos.cc/logos/pepe-pepe-logo.png?v=040'],
         'eur-usd' => ['$_flags/eu.png', '$_flags/us.png'],
         'gbp-usd' => ['$_flags/gb.png', '$_flags/us.png'],
         'usd-jpy' => ['$_flags/us.png', '$_flags/jp.png'],

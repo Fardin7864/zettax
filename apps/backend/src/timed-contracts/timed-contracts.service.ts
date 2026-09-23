@@ -168,7 +168,7 @@ export class TimedContractsService {
       ) {
         this.invalid(
           "INVALID_INVESTMENT_AMOUNT",
-          `Minimum stake is ${minimumStake.toFixed(2)} BDT, with at most two decimal places.`,
+          `Minimum stake is $${minimumStake.toFixed(2)}, with at most two decimal places.`,
         );
       }
       const wallet = await this.ledger.lockWallet(tx, account.id);
@@ -433,12 +433,12 @@ export class TimedContractsService {
         proportional?.grossPnl ?? payout.minus(contract.investmentAmount);
       if (proportional && proportional.fee.greaterThan(0)) {
         const fees = await tx.ledgerAccount.upsert({
-          where: { code: `PV:${contract.account.mode}:PROFIT_FEES:BDT` },
+          where: { code: `PV:${contract.account.mode}:PROFIT_FEES:USD` },
           update: {},
           create: {
-            code: `PV:${contract.account.mode}:PROFIT_FEES:BDT`,
+            code: `PV:${contract.account.mode}:PROFIT_FEES:USD`,
             name: "Profit fees",
-            currencyCode: "BDT",
+            currencyCode: "USD",
             mode: contract.account.mode,
             type: "REVENUE",
           },
@@ -452,12 +452,12 @@ export class TimedContractsService {
       const counterparty =
         contract.account.mode === AccountMode.REAL
           ? await tx.ledgerAccount.upsert({
-              where: { code: "PV:REAL:COUNTERPARTY_PNL:BDT" },
+              where: { code: "PV:REAL:COUNTERPARTY_PNL:USD" },
               update: {},
               create: {
-                code: "PV:REAL:COUNTERPARTY_PNL:BDT",
+                code: "PV:REAL:COUNTERPARTY_PNL:USD",
                 name: "Zettax counterparty P&L",
-                currencyCode: "BDT",
+                currencyCode: "USD",
                 mode: AccountMode.REAL,
                 type: "EXPENSE",
               },
