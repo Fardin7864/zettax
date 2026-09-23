@@ -7,8 +7,8 @@ void main() {
     final normal = chartBodyWidth(360, 42);
     final zoomed = chartBodyWidth(360, 21);
     expect(zoomed, greaterThan(normal * 1.8));
-    expect(normal / ((360 - 72) / 44), greaterThan(.97));
-    expect(zoomed / ((360 - 72) / 23), greaterThan(.97));
+    expect(normal / ((360 - 64) / 44), greaterThan(.97));
+    expect(zoomed / ((360 - 64) / 23), greaterThan(.97));
   });
 
   test('moving averages use only observed closing prices and volumes', () {

@@ -43,7 +43,7 @@ double? candleAverage(List<ChartCandle> candles, int index, int period,
 }
 
 double chartBodyWidth(double viewportWidth, int visibleCount) {
-  final plotWidth = max(0.0, viewportWidth - 72);
+  final plotWidth = max(0.0, viewportWidth - 64);
   return max(1.0, plotWidth / max(1, visibleCount + 2) * .98);
 }
 
@@ -156,7 +156,7 @@ class _OhlcChartState extends State<OhlcChart> {
                       maxVisible,
                     );
             final candleWidth =
-                max(1.0, (_canvasWidth - 68) / (nextVisible + 2));
+                max(1.0, (_canvasWidth - 64) / (nextVisible + 2));
             final movedCandles =
                 ((details.localFocalPoint.dx - _scaleStartFocal.dx) /
                         candleWidth)
@@ -255,6 +255,16 @@ class _CandlePainter extends CustomPainter {
         max(40.0, size.height - topPadding - bottomPadding - volumeHeight);
     var minPrice = visible.map((candle) => candle.low).reduce(min);
     var maxPrice = visible.map((candle) => candle.high).reduce(max);
+    // Include the visible MA values in the scale so all three overlays stay
+    // inside the price panel even when the viewport is zoomed into a trend.
+    for (final period in [7, 25, 99]) {
+      for (var index = startIndex; index < endIndex; index++) {
+        final average = candleAverage(candles, index, period);
+        if (average == null) continue;
+        minPrice = min(minPrice, average);
+        maxPrice = max(maxPrice, average);
+      }
+    }
     final rawRange = maxPrice - minPrice;
     final padding =
         rawRange == 0 ? maxPrice.abs() * .002 + .00001 : rawRange * .08;
@@ -376,7 +386,7 @@ class _CandlePainter extends CustomPainter {
             positive ? const Color(0xFF22C55E) : const Color(0xFFF87171);
         final paint = Paint()
           ..color = color
-          ..strokeWidth = max(1.0, bodyWidth * .16);
+          ..strokeWidth = 1.15;
         final openY = y(candle.open);
         final closeY = y(candle.close);
         final top = min(openY, closeY);
@@ -598,8 +608,8 @@ class _CandlePainter extends CustomPainter {
 
 class _CandleTimeline {
   _CandleTimeline(this.candles, this.width)
-      : left = 8,
-        right = max(8, width - 64) {
+      : left = 2,
+        right = max(2, width - 62) {
     final lastTime = candles.last.time.millisecondsSinceEpoch;
     sampleStep = candles.length > 1
         ? max(
