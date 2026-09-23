@@ -104,6 +104,7 @@ class _LandingHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stacked = MediaQuery.sizeOf(context).width < 1050;
     final copy =
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _Entrance(
@@ -175,11 +176,11 @@ class _LandingHero extends StatelessWidget {
           colors: [Color(0xFF201D1A), Color(0xFF1C1C1C)],
         ),
       ),
-      child: compact
+      child: stacked
           ? Column(children: [
               copy,
               const SizedBox(height: 38),
-              const SizedBox(height: 320, child: _HeroVisual()),
+              SizedBox(height: compact ? 320 : 420, child: const _HeroVisual()),
             ])
           : Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
               Expanded(flex: 10, child: copy),
