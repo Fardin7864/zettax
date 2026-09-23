@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:primevest_mobile/app/brand_logo.dart';
 import 'package:primevest_mobile/app/design_system.dart';
@@ -40,6 +42,14 @@ class WelcomeScreen extends StatelessWidget {
         TextButton(
             onPressed: () => context.push('/login'),
             child: Center(child: Text(l10n.login))),
+        if (kIsWeb)
+          OutlinedButton.icon(
+            onPressed: () => launchUrl(
+              Uri.parse('https://zettax.app/downloads/zettax-latest.apk'),
+            ),
+            icon: const Icon(Icons.android),
+            label: const Text('Download Android app'),
+          ),
       ]),
     )));
   }

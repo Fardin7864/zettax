@@ -148,6 +148,17 @@ class SessionController extends StateNotifier<SessionState> {
     }
   }
 
+  Future<bool> googleWithIdToken(String idToken) async {
+    try {
+      final result = await _repository.google(idToken);
+      state = SessionState.authenticated(result.user);
+      return true;
+    } catch (error) {
+      state = SessionState.guest(failure: error);
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _repository.logout();
     await _googleSignIn.signOut();

@@ -11,7 +11,9 @@ under `/srv/zettax/releases/`.
 - `zettax-admin.service`: Next.js operations console on `127.0.0.1:3001`.
 - `zettax-worker.service`: financial settlement and outbox worker.
 - Nginx serves `zettax.app`, `api.zettax.app`, `admin.zettax.app`, and
-  `status.zettax.app` over HTTPS. The apex serves a small public landing page;
+  `status.zettax.app` over HTTPS. The apex serves the Flutter web client from
+  `/var/www/zettax-web/current`, proxies `/api/v1/` and `/socket.io/` to the same API,
+  and retains the Android downloads and update manifest;
   the status host exposes the API process health response.
 - Certbot renews the shared certificate. Its deploy hook reloads Nginx.
 

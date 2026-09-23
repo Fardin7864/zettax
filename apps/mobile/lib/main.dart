@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -94,9 +95,22 @@ class PrimeVestApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: PrimeVestDesignSystem.theme,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
-      builder: (context, child) => AppUpdateHost(
-          navigatorKey: rootNavigatorKey,
-          child: TopNotificationHost(child: child ?? const SizedBox.shrink())),
+      builder: (context, child) {
+        final content =
+            TopNotificationHost(child: child ?? const SizedBox.shrink());
+        if (kIsWeb) {
+          return ColoredBox(
+            color: PrimeVestDesignSystem.backgroundDark,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: content,
+              ),
+            ),
+          );
+        }
+        return AppUpdateHost(navigatorKey: rootNavigatorKey, child: content);
+      },
       routerConfig: ref.watch(routerProvider),
       locale: ref.watch(appLocaleProvider),
       localizationsDelegates: const [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:primevest_mobile/app/brand_logo.dart';
@@ -8,6 +9,8 @@ import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
 import 'package:primevest_mobile/core/auth/auth_models.dart';
 import 'package:primevest_mobile/core/auth/native_google_sign_in.dart';
+import 'package:primevest_mobile/features/auth/web_google_button_stub.dart'
+    if (dart.library.js_interop) 'package:primevest_mobile/features/auth/web_google_button.dart';
 
 enum AuthMode { login, register, forgotPassword }
 
@@ -151,27 +154,30 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ],
                     ),
                   ),
-                  OutlinedButton(
-                    onPressed: submitting ? null : _submitGoogle,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(54),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'G',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF4285F4),
+                  if (kIsWeb)
+                    WebGoogleButton(onAuthenticated: _completeWebGoogle)
+                  else
+                    OutlinedButton(
+                      onPressed: submitting ? null : _submitGoogle,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'G',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF4285F4),
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 12),
-                        Text('Continue with Google'),
-                      ],
+                          SizedBox(width: 12),
+                          Text('Continue with Google'),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
                 const SizedBox(height: 12),
                 OutlinedButton(
@@ -254,6 +260,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
     final failure = ref.read(sessionProvider).failure;
     if (failure != null) _showFailure();
+  }
+
+  Future<void> _completeWebGoogle(String idToken) async {
+    if (!mounted || submitting) return;
+    setState(() => submitting = true);
+    final succeeded =
+        await ref.read(sessionProvider.notifier).googleWithIdToken(idToken);
+    if (!mounted) return;
+    setState(() => submitting = false);
+    if (succeeded) {
+      context.go('/home');
+    } else {
+      _showFailure();
+    }
   }
 
   void _showFailure() {

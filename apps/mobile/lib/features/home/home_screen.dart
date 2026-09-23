@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -63,34 +64,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const PortfolioPage(),
       const ProfilePage(),
     ];
-    return Scaffold(
-      body: IndexedStack(index: index, children: pages),
-      bottomNavigationBar: index == 2
-          ? null
-          : NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: _selectTab,
-              destinations: [
-                NavigationDestination(
-                    icon: const Icon(Icons.home_outlined),
-                    selectedIcon: const Icon(Icons.home),
-                    label: l10n.home),
-                NavigationDestination(
-                    icon: const Icon(Icons.candlestick_chart_outlined),
-                    label: l10n.markets),
-                NavigationDestination(
-                    icon: const Icon(Icons.swap_vert_circle_outlined),
-                    selectedIcon: const Icon(Icons.swap_vert_circle),
-                    label: l10n.trade),
-                NavigationDestination(
-                    icon: const Icon(Icons.pie_chart_outline),
-                    label: l10n.portfolio),
-                NavigationDestination(
-                    icon: const Icon(Icons.person_outline),
-                    label: l10n.profile),
-              ],
-            ),
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = kIsWeb && constraints.maxWidth >= 900;
+      final content = IndexedStack(index: index, children: pages);
+      return Scaffold(
+        body: wide && index != 2
+            ? Row(children: [
+                NavigationRail(
+                  extended: constraints.maxWidth >= 1100,
+                  selectedIndex: index,
+                  onDestinationSelected: _selectTab,
+                  destinations: [
+                    NavigationRailDestination(
+                        icon: const Icon(Icons.home_outlined),
+                        label: Text(l10n.home)),
+                    NavigationRailDestination(
+                        icon: const Icon(Icons.candlestick_chart_outlined),
+                        label: Text(l10n.markets)),
+                    NavigationRailDestination(
+                        icon: const Icon(Icons.swap_vert_circle_outlined),
+                        label: Text(l10n.trade)),
+                    NavigationRailDestination(
+                        icon: const Icon(Icons.pie_chart_outline),
+                        label: Text(l10n.portfolio)),
+                    NavigationRailDestination(
+                        icon: const Icon(Icons.person_outline),
+                        label: Text(l10n.profile)),
+                  ],
+                ),
+                Expanded(child: content),
+              ])
+            : content,
+        bottomNavigationBar: index == 2 || wide
+            ? null
+            : NavigationBar(
+                selectedIndex: index,
+                onDestinationSelected: _selectTab,
+                destinations: [
+                  NavigationDestination(
+                      icon: const Icon(Icons.home_outlined),
+                      selectedIcon: const Icon(Icons.home),
+                      label: l10n.home),
+                  NavigationDestination(
+                      icon: const Icon(Icons.candlestick_chart_outlined),
+                      label: l10n.markets),
+                  NavigationDestination(
+                      icon: const Icon(Icons.swap_vert_circle_outlined),
+                      selectedIcon: const Icon(Icons.swap_vert_circle),
+                      label: l10n.trade),
+                  NavigationDestination(
+                      icon: const Icon(Icons.pie_chart_outline),
+                      label: l10n.portfolio),
+                  NavigationDestination(
+                      icon: const Icon(Icons.person_outline),
+                      label: l10n.profile),
+                ],
+              ),
+      );
+    });
   }
 }
 
