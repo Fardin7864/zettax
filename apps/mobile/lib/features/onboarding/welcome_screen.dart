@@ -63,10 +63,10 @@ class WelcomeScreen extends StatelessWidget {
                               OutlinedButton.icon(
                                 onPressed: () => launchUrl(
                                   Uri.parse(
-                                      'https://zettax.app/downloads/zettax-latest.apk'),
+                                      'https://play.google.com/store/apps/details?id=com.primevest.app'),
                                 ),
                                 icon: const Icon(Icons.android),
-                                label: const Text('Download Android app'),
+                                label: const Text('Get it on Google Play'),
                               ),
                           ]),
                     )))));

@@ -11,7 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 const _gold = PrimeVestDesignSystem.primaryGold;
 const _muted = PrimeVestDesignSystem.textMuted;
-const _downloadUrl = 'https://zettax.app/downloads/zettax-latest.apk';
+const _downloadUrl =
+    'https://play.google.com/store/apps/details?id=com.primevest.app';
 
 class WebLandingScreen extends StatelessWidget {
   const WebLandingScreen({super.key});
@@ -157,7 +158,7 @@ class _LandingHero extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onDownload,
           icon: const Icon(Icons.android),
-          label: const Text('Download Android app'),
+          label: const Text('Get it on Google Play'),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white,
             minimumSize: const Size(0, 52),
@@ -972,7 +973,8 @@ class _DownloadSection extends StatelessWidget {
           Text('Your workspace, wherever you are.',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
           SizedBox(height: 9),
-          Text('Download the Android app or keep trading in your browser.',
+          Text(
+              'Get the Android app on Google Play or keep trading in your browser.',
               style: TextStyle(color: _muted, height: 1.5)),
         ],
       );
@@ -983,7 +985,7 @@ class _DownloadSection extends StatelessWidget {
           FilledButton.icon(
             onPressed: onDownload,
             icon: const Icon(Icons.download_outlined),
-            label: const Text('Download for Android'),
+            label: const Text('Get it on Google Play'),
             style: FilledButton.styleFrom(minimumSize: const Size(230, 52)),
           ),
           const SizedBox(height: 10),
@@ -1096,7 +1098,7 @@ class _LandingFooter extends StatelessWidget {
         TextButton(
             onPressed: () => context.push('/risk'),
             child: const Text('Risk disclosure')),
-        TextButton(onPressed: onDownload, child: const Text('Android app')),
+        TextButton(onPressed: onDownload, child: const Text('Google Play')),
       ]);
 }
 
