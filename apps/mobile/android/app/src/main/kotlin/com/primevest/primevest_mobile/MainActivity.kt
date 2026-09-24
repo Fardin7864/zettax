@@ -24,6 +24,10 @@ class MainActivity : FlutterActivity() {
                     }
                     "cacheDirectory" -> result.success(File(cacheDir, "updates").apply { mkdirs() }.absolutePath)
                     "install" -> {
+                        if (BuildConfig.FLAVOR == "play") {
+                            result.error("PLAY_UPDATE", "Install updates through Google Play.", null)
+                            return@setMethodCallHandler
+                        }
                         val path = call.argument<String>("path")
                         val allowed = File(cacheDir, "updates").canonicalFile
                         val apk = path?.let { File(it).canonicalFile }

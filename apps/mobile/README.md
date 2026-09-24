@@ -1,25 +1,22 @@
 # Zettax Mobile
 
-Flutter client demo for Zettax. The demo trading engine and instrument
-catalogue use bundled data through a `MockPrimeVestApi` boundary, so trading
-continues without Docker or internet access. When the Zettax backend is
-reachable, asset and Trade charts request external display-only candles through
-the backend. External data is never passed to the demo execution engine.
+Flutter client for Zettax. Guest demo trading uses virtual funds; signed-in
+accounts use the Zettax backend for balances, requests and trading records.
+Charts request display-only market data from the backend. Display prices are
+not client-supplied execution prices.
 
-## Demo capabilities
+## Capabilities
 
 - Official Zettax wordmark, compact mark, native splash, and adaptive icon
-- Guest demo with ৳100,000.00 in virtual funds
-- Mock registration, login, and password-reset experiences
-- Five simulated asset classes, search, favorites, and rolling price charts
+- Guest demo with $1,000.00 in virtual funds
+- Backend registration, login, Google sign-in and password-reset experiences
+- Crypto, forex, stock, index and commodity search, favorites and charts
 - Backend-proxied external display candles with provider, freshness, timeframe,
   receipt age, and simulated-fallback labels
-- Interactive 1m, 5m, 15m, 30m, 1h, 4h, and 1d chart timeframes with automatic
-  and manual refresh
-- Normal BUY/SELL and timed UP/DOWN demo trades
-- Pre-trade confirmation with price, payout, and zero-fee disclosure
-- Moving P/L, closing positions, settlement, history, and full transactions
-- Explicit DEMO and simulated-market disclosures throughout
+- Interactive chart periods from 1 minute to 5 years with live updates
+- Guest demo and signed-in account trade flows, moving P/L, settlement and history
+- Deposit and withdrawal requests for authenticated accounts, subject to review
+- Explicit virtual-balance and market-data disclosures
 
 ## Verify and build
 
@@ -29,11 +26,25 @@ flutter gen-l10n
 dart format lib test
 flutter analyze
 flutter test
-flutter build apk --release
+flutter build apk --release --flavor direct
 ```
 
-The package ID is `com.primevest.app`. The release APK currently uses a
-development signature for direct client testing and is not a Play Store build.
+The package ID is `com.primevest.app`. Android has separate `direct` and `play`
+distribution flavors. The direct APK keeps its historical certificate so existing
+website-installed copies can update in place; the Play App Bundle uses a private
+upload key and Play App Signing. Those two distribution channels do not share a
+device-installation certificate, so a website-installed copy may need to be
+uninstalled before its first Play installation (after backing up any local-only
+demo data). The Play build excludes the APK installer and lets Google Play
+deliver updates.
+
+Build the direct APK with `flutter build apk --release --flavor direct`. Build
+the Play App Bundle with `infrastructure/scripts/build-play-bundle.ps1` from
+the repository root. On the designated release machine, run it once with
+`-CreateUploadKey` to generate the private upload key. Keep the key and its
+DPAPI-protected password backup together; the password file can only be
+decrypted by the same Windows account on the same machine. Never commit either
+file. See [Play release checklist](../../docs/PLAY_RELEASE.md).
 
 ## Market-data backend
 

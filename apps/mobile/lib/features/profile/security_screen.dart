@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
@@ -235,6 +236,28 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                   onPressed: busy ? null : signOutAll,
                   icon: const Icon(Icons.logout),
                   label: const Text('Sign out all devices'),
+                ),
+                const SizedBox(height: 18),
+                const Text('Your data',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('Privacy policy'),
+                  onTap: () => launchUrl(
+                    Uri.parse('https://zettax.app/privacy.html'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.person_remove_outlined),
+                  title: const Text('Request account deletion'),
+                  subtitle: const Text('Open the web request path'),
+                  onTap: () => launchUrl(
+                    Uri.parse('https://zettax.app/account-deletion.html'),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Text(

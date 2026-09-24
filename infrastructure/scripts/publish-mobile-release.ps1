@@ -26,9 +26,9 @@ $key = Join-Path $env:USERPROFILE '.android\debug.keystore'
 if (-not (Test-Path $key)) { throw 'Original Android signing key is missing. Do not publish an APK with a different key.' }
 
 Push-Location $mobileDir
-try { & $flutter build apk --release } finally { Pop-Location }
+try { & $flutter build apk --release --flavor direct } finally { Pop-Location }
 if ($LASTEXITCODE -ne 0) { throw 'Flutter APK build failed.' }
-$apk = Join-Path $mobileDir 'build\app\outputs\flutter-apk\app-release.apk'
+$apk = Join-Path $mobileDir 'build\app\outputs\flutter-apk\app-direct-release.apk'
 $signer = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Android\Sdk\build-tools') -Filter apksigner.bat -Recurse |
   Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
 if (-not $signer) { throw 'Android apksigner is unavailable; cannot verify the update signing certificate.' }

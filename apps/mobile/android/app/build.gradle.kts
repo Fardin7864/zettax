@@ -9,6 +9,10 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -28,13 +32,42 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("direct") {
+            dimension = "distribution"
+        }
+        create("play") {
+            dimension = "distribution"
         }
     }
+
+    val playUploadKeyPath = System.getenv("ZETTAX_PLAY_UPLOAD_KEYSTORE")
+    val playUploadPassword = System.getenv("ZETTAX_PLAY_UPLOAD_PASSWORD")
+    signingConfigs {
+        if (!playUploadKeyPath.isNullOrBlank() && !playUploadPassword.isNullOrBlank()) {
+            create("playUpload") {
+                storeFile = file(playUploadKeyPath)
+                storePassword = playUploadPassword
+                keyAlias = "zettax-upload"
+                keyPassword = playUploadPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Preserve the original signing certificate for direct APK updates.
+            // The Play bundle uses a separate upload key when explicitly requested.
+            signingConfig = if (System.getenv("ZETTAX_ANDROID_DISTRIBUTION") == "play") {
+                signingConfigs.findByName("playUpload")
+                    ?: error("Set ZETTAX_PLAY_UPLOAD_KEYSTORE and ZETTAX_PLAY_UPLOAD_PASSWORD before building a Play release.")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
+    }
+
 }
 
 kotlin {

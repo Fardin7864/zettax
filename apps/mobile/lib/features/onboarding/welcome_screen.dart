@@ -51,6 +51,14 @@ class WelcomeScreen extends StatelessWidget {
                             TextButton(
                                 onPressed: () => context.push('/login'),
                                 child: Center(child: Text(l10n.login))),
+                            TextButton(
+                              onPressed: () => launchUrl(
+                                Uri.parse('https://zettax.app/privacy.html'),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                              child:
+                                  const Center(child: Text('Privacy policy')),
+                            ),
                             if (kIsWeb)
                               OutlinedButton.icon(
                                 onPressed: () => launchUrl(
