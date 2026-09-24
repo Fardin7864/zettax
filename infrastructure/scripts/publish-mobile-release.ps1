@@ -39,7 +39,9 @@ if ($LASTEXITCODE -ne 0 -or $certificate -notmatch 'b12fba9db09902b9096f71db0927
 $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
 $tag = "v$VersionName"
 $assetName = "zettax-$VersionName.apk"
-if ((gh release view $tag --repo Fardin7864/zettax 2>$null)) {
+$releaseList = gh release list --repo Fardin7864/zettax --json tagName --limit 100 | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw 'Could not check existing GitHub releases.' }
+if ($releaseList | Where-Object { $_.tagName -eq $tag }) {
   throw "Release $tag already exists; refusing to overwrite a published APK."
 }
 $manifest = [ordered]@{
