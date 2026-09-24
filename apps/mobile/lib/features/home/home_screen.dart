@@ -743,8 +743,9 @@ const _chartPeriods = <_ChartPeriod>[
 ];
 
 class _TradePageState extends ConsumerState<TradePage> {
-  final bool timed = true;
+  bool timed = true;
   bool submitting = false;
+  final Set<String> closingPositions = {};
   final Map<String, ({double price, double stake})> displayEntries = {};
   late final Timer clock;
 
@@ -756,6 +757,8 @@ class _TradePageState extends ConsumerState<TradePage> {
       setState(() {});
       if (DateTime.now().second % 5 == 0 &&
           ref.read(sessionProvider).phase == SessionPhase.authenticated) {
+        ref.invalidate(
+            positionsProvider(ref.read(selectedAccountModeProvider)));
         ref.invalidate(
             timedContractsProvider(ref.read(selectedAccountModeProvider)));
       }
@@ -771,6 +774,26 @@ class _TradePageState extends ConsumerState<TradePage> {
   String remaining(DateTime? end) {
     if (end == null) return 'Open';
     return contractTimeRemaining(end);
+  }
+
+  Future<void> closeOpenPosition(
+      String id, bool authenticated, AccountMode mode) async {
+    if (closingPositions.contains(id)) return;
+    setState(() => closingPositions.add(id));
+    try {
+      if (authenticated) {
+        await ref.read(tradingRepositoryProvider).closePosition(id);
+        ref.invalidate(positionsProvider(mode));
+        ref.invalidate(accountsProvider);
+      } else {
+        ref.read(demoAccountProvider.notifier).closePosition(id);
+      }
+      if (mounted) _result(context, true, 'Position closed');
+    } on ApiFailure catch (error) {
+      if (mounted) _result(context, false, error.message);
+    } finally {
+      if (mounted) setState(() => closingPositions.remove(id));
+    }
   }
 
   double amount = 10;
@@ -864,6 +887,8 @@ class _TradePageState extends ConsumerState<TradePage> {
       limit: period.limit,
     );
     final displaySeries = ref.watch(liveCandlesProvider(candleRequest));
+    final minuteSeries = ref.watch(
+        liveCandlesProvider((assetId: asset.id, interval: '1m', limit: 120)));
     final dailyHistory = ref.watch(dailyPerformanceProvider(asset.id));
     final providerTime = displaySeries.valueOrNull?.providerTimestamp;
     final utcNow = DateTime.now().toUtc();
@@ -917,8 +942,10 @@ class _TradePageState extends ConsumerState<TradePage> {
         : const [];
     final tradeMarkers = <ChartTradeMarker>[];
     void addMarker(String id, DateTime openedAt, DateTime? endsAt, String side,
-        {double profitFeeRate = 0}) {
-      final entry = displayEntries[id];
+        {double profitFeeRate = 0, double? entryPrice, double? stakeAmount}) {
+      final entry = entryPrice != null && stakeAmount != null
+          ? (price: entryPrice, stake: stakeAmount)
+          : displayEntries[id];
       // Never substitute a simulated fill for a missing live entry observation.
       if (entry == null || livePrice == null) return;
       final estimate = estimateContractReturn(
@@ -959,7 +986,12 @@ class _TradePageState extends ConsumerState<TradePage> {
     if (authenticated) {
       for (final position in serverPositions) {
         if (position.instrumentId == asset.id && position.status == 'OPEN') {
-          addMarker(position.id, position.openedAt, null, position.side);
+          final entry = double.tryParse(position.averageEntry);
+          final quantity = double.tryParse(position.quantity);
+          addMarker(position.id, position.openedAt, null, position.side,
+              entryPrice: entry,
+              stakeAmount:
+                  entry == null || quantity == null ? null : entry * quantity);
         }
       }
       for (final contract in serverContracts) {
@@ -972,7 +1004,9 @@ class _TradePageState extends ConsumerState<TradePage> {
           }
           addMarker(contract.id, contract.entryTimestamp,
               contract.expiryTimestamp, contract.direction,
-              profitFeeRate: double.parse(contract.profitFeeRate));
+              profitFeeRate: double.tryParse(contract.profitFeeRate) ?? 0,
+              entryPrice: double.tryParse(contract.entryPrice),
+              stakeAmount: double.tryParse(contract.investmentAmount));
         }
       }
     } else {
@@ -988,6 +1022,85 @@ class _TradePageState extends ConsumerState<TradePage> {
           addMarker(contract.id, contract.entryTimestamp,
               contract.expiryTimestamp, contract.direction.name.toUpperCase());
         }
+      }
+    }
+
+    final activeTrades = <_ActiveTradeItem>[];
+    if (authenticated) {
+      for (final position
+          in serverPositions.where((item) => item.status == 'OPEN')) {
+        final pnl = double.tryParse(position.unrealizedPnl);
+        activeTrades.add(_ActiveTradeItem(
+          id: position.id,
+          assetId: position.instrumentId,
+          title: position.instrumentId.toUpperCase(),
+          detail: '${position.side} · Open-ended · Paper P/L',
+          value: pnl == null
+              ? '—'
+              : '${pnl >= 0 ? '+' : '-'}\$${pnl.abs().toStringAsFixed(2)}',
+          positive: pnl == null || pnl >= 0,
+          onClose: closingPositions.contains(position.id)
+              ? null
+              : () => closeOpenPosition(position.id, true, mode),
+        ));
+      }
+      for (final contract
+          in serverContracts.where((item) => item.result == 'PENDING')) {
+        final entry = double.tryParse(contract.entryPrice);
+        final stake = double.tryParse(contract.investmentAmount);
+        final estimate = contract.instrumentId == asset.id &&
+                livePrice != null &&
+                entry != null &&
+                stake != null
+            ? estimateContractReturn(
+                stake: stake,
+                entryPrice: entry,
+                currentPrice: livePrice,
+                up: contract.direction == 'UP',
+                profitFeeRate: double.tryParse(contract.profitFeeRate) ?? 0)
+            : null;
+        activeTrades.add(_ActiveTradeItem(
+          id: contract.id,
+          assetId: contract.instrumentId,
+          title: contract.instrumentId.toUpperCase(),
+          detail:
+              '${contract.direction} · Timed · ${remaining(contract.expiryTimestamp)}',
+          value: estimate == null
+              ? 'Stake \$${contract.investmentAmount}'
+              : 'Est. ${estimate.pnl >= 0 ? '+' : '-'}\$${estimate.pnl.abs().toStringAsFixed(2)}',
+          positive: estimate == null || estimate.pnl >= 0,
+        ));
+      }
+    } else if (demoSelected) {
+      final prices = ref.watch(marketProvider).prices;
+      for (final position in demoAccount.positions) {
+        final price = prices[position.assetId] ?? position.entryPrice;
+        final pnl = (price - position.entryPrice) *
+            position.quantity *
+            (position.side == TradeSide.buy ? 1 : -1);
+        activeTrades.add(_ActiveTradeItem(
+          id: position.id,
+          assetId: position.assetId,
+          title: position.assetId.toUpperCase(),
+          detail: '${position.side.name.toUpperCase()} · Open-ended · Demo P/L',
+          value: '${pnl >= 0 ? '+' : '-'}\$${pnl.abs().toStringAsFixed(2)}',
+          positive: pnl >= 0,
+          onClose: closingPositions.contains(position.id)
+              ? null
+              : () => closeOpenPosition(position.id, false, mode),
+        ));
+      }
+      for (final contract in demoAccount.contracts
+          .where((item) => item.result == ContractResult.pending)) {
+        activeTrades.add(_ActiveTradeItem(
+          id: contract.id,
+          assetId: contract.assetId,
+          title: contract.assetId.toUpperCase(),
+          detail:
+              '${contract.direction.name.toUpperCase()} · Timed · ${remaining(contract.expiryTimestamp)}',
+          value: 'Stake ${usdFromCents(contract.investmentPaisa)}',
+          positive: true,
+        ));
       }
     }
 
@@ -1111,8 +1224,9 @@ class _TradePageState extends ConsumerState<TradePage> {
       setState(() => submitting = true);
       try {
         final repository = ref.read(tradingRepositoryProvider);
-        final pending =
-            authenticated ? await repository.pendingTimedContract() : null;
+        final pending = timed && authenticated
+            ? await repository.pendingTimedContract()
+            : null;
         if (!context.mounted) return;
         if (pending != null) {
           final body = pending['body'] as Map;
@@ -1308,30 +1422,19 @@ class _TradePageState extends ConsumerState<TradePage> {
                             height: 47,
                             child: MarketPerformanceStrip(
                               history: dailyHistory.valueOrNull,
+                              minuteSeries: minuteSeries.valueOrNull,
+                              precision: asset.precision,
                               latestPrice: livePrice,
                               asOf: performanceAsOf,
                               loading: dailyHistory.isLoading,
                             ),
                           ),
-                          if (tradeMarkers.isNotEmpty)
-                            SizedBox(
-                              height: 40,
-                              child: ListView.separated(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                                scrollDirection: Axis.horizontal,
-                                itemCount: tradeMarkers.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(width: 8),
-                                itemBuilder: (_, i) => Chip(
-                                  avatar: const Icon(Icons.timer_outlined,
-                                      size: 15,
-                                      color: PrimeVestDesignSystem.positive),
-                                  label: Text(
-                                      '${tradeMarkers[i].label}  ${remaining(tradeMarkers[i].endsAt)}'),
-                                ),
-                              ),
-                            ),
+                          _ActiveTradesStrip(
+                            items: activeTrades,
+                            onSelect: (id) => ref
+                                .read(selectedAssetProvider.notifier)
+                                .state = id,
+                          ),
                         ]),
                       ),
                     ),
@@ -1385,6 +1488,13 @@ class _TradePageState extends ConsumerState<TradePage> {
                                         color: PrimeVestDesignSystem.textMuted,
                                         fontSize: 12)),
                               const Divider(height: 38),
+                              _TradeModeSelector(
+                                timed: timed,
+                                onChanged: submitting
+                                    ? null
+                                    : (value) => setState(() => timed = value),
+                              ),
+                              const SizedBox(height: 18),
                               const Text('Investment',
                                   style:
                                       TextStyle(fontWeight: FontWeight.w700)),
@@ -1409,32 +1519,47 @@ class _TradePageState extends ConsumerState<TradePage> {
                                 ),
                               ),
                               const SizedBox(height: 18),
-                              const Text('Duration',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w700)),
+                              Text(timed ? 'Duration' : 'Closing',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700)),
                               const SizedBox(height: 8),
-                              SizedBox(
-                                height: 42,
-                                child: _TradeStepper(
-                                  label: 'Duration',
-                                  value: durationSeconds >= 86400
-                                      ? '${durationSeconds ~/ 86400}d ${(durationSeconds % 86400) ~/ 3600}h'
-                                      : '${(durationSeconds ~/ 3600).toString().padLeft(2, '0')}:${((durationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(durationSeconds % 60).toString().padLeft(2, '0')}',
-                                  onTap: submitting
+                              if (timed)
+                                SizedBox(
+                                  height: 42,
+                                  child: _TradeStepper(
+                                    label: 'Duration',
+                                    value: durationSeconds >= 86400
+                                        ? '${durationSeconds ~/ 86400}d ${(durationSeconds % 86400) ~/ 3600}h'
+                                        : '${(durationSeconds ~/ 3600).toString().padLeft(2, '0')}:${((durationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(durationSeconds % 60).toString().padLeft(2, '0')}',
+                                    onTap: submitting
+                                        ? null
+                                        : () => _editContractValue(true),
+                                    decrease: submitting
+                                        ? null
+                                        : () => setState(() => durationSeconds =
+                                            (durationSeconds - 30)
+                                                .clamp(30, 31536000)),
+                                    increase: submitting
+                                        ? null
+                                        : () => setState(() => durationSeconds =
+                                            (durationSeconds + 30)
+                                                .clamp(30, 31536000)),
+                                  ),
+                                )
+                              else
+                                const Text(
+                                    'No expiry · close manually. Paper P/L uses simulated server prices.',
+                                    style: TextStyle(
+                                        color: PrimeVestDesignSystem.textMuted,
+                                        fontSize: 12)),
+                              if (timed)
+                                _DurationPresets(
+                                  value: durationSeconds,
+                                  onSelected: submitting
                                       ? null
-                                      : () => _editContractValue(true),
-                                  decrease: submitting
-                                      ? null
-                                      : () => setState(() => durationSeconds =
-                                          (durationSeconds - 30)
-                                              .clamp(30, 31536000)),
-                                  increase: submitting
-                                      ? null
-                                      : () => setState(() => durationSeconds =
-                                          (durationSeconds + 30)
-                                              .clamp(30, 31536000)),
+                                      : (value) => setState(
+                                          () => durationSeconds = value),
                                 ),
-                              ),
                               const SizedBox(height: 24),
                               if (!tradingAvailable)
                                 const Padding(
@@ -1448,7 +1573,11 @@ class _TradePageState extends ConsumerState<TradePage> {
                               SizedBox(
                                 height: 48,
                                 child: TradeButton(
-                                  label: submitting ? 'Please wait…' : 'BUY ↑',
+                                  label: submitting
+                                      ? 'Please wait…'
+                                      : timed
+                                          ? 'BUY ↑'
+                                          : 'BUY',
                                   icon: Icons.north_east,
                                   onPressed: tradingAvailable &&
                                           !submitting &&
@@ -1461,7 +1590,11 @@ class _TradePageState extends ConsumerState<TradePage> {
                               SizedBox(
                                 height: 48,
                                 child: TradeButton(
-                                  label: submitting ? 'Please wait…' : 'SELL ↓',
+                                  label: submitting
+                                      ? 'Please wait…'
+                                      : timed
+                                          ? 'SELL ↓'
+                                          : 'SELL',
                                   icon: Icons.south_west,
                                   negative: true,
                                   onPressed: tradingAvailable &&
@@ -1645,27 +1778,24 @@ class _TradePageState extends ConsumerState<TradePage> {
             height: 47,
             child: MarketPerformanceStrip(
               history: dailyHistory.valueOrNull,
+              minuteSeries: minuteSeries.valueOrNull,
+              precision: asset.precision,
               latestPrice: livePrice,
               asOf: performanceAsOf,
               loading: dailyHistory.isLoading,
             ),
           ),
-          if (tradeMarkers.isNotEmpty)
-            SizedBox(
-                height: 34,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: tradeMarkers.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) => Chip(
-                    visualDensity: VisualDensity.compact,
-                    avatar: const Icon(Icons.timer_outlined,
-                        size: 15, color: PrimeVestDesignSystem.positive),
-                    label: Text(
-                        '#${i + 1} ${tradeMarkers[i].label}  ${remaining(tradeMarkers[i].endsAt)}',
-                        style: const TextStyle(fontSize: 11)),
-                  ),
-                )),
+          _ActiveTradesStrip(
+            items: activeTrades,
+            onSelect: (id) =>
+                ref.read(selectedAssetProvider.notifier).state = id,
+          ),
+          _TradeModeSelector(
+            timed: timed,
+            compact: true,
+            onChanged:
+                submitting ? null : (value) => setState(() => timed = value),
+          ),
           const SizedBox(height: 2),
           Row(children: [
             Expanded(
@@ -1686,27 +1816,43 @@ class _TradePageState extends ConsumerState<TradePage> {
               ),
             )),
             const SizedBox(width: 10),
-            Expanded(
-                child: SizedBox(
-              key: const ValueKey('trade-duration-control'),
-              height: 36,
-              child: _TradeStepper(
-                label: 'Duration',
-                value: durationSeconds >= 86400
-                    ? '${durationSeconds ~/ 86400}d ${(durationSeconds % 86400) ~/ 3600}h'
-                    : '${(durationSeconds ~/ 3600).toString().padLeft(2, '0')}:${((durationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(durationSeconds % 60).toString().padLeft(2, '0')}',
-                onTap: submitting ? null : () => _editContractValue(true),
-                decrease: submitting
-                    ? null
-                    : () => setState(() => durationSeconds =
-                        (durationSeconds - 30).clamp(30, 31536000)),
-                increase: submitting
-                    ? null
-                    : () => setState(() => durationSeconds =
-                        (durationSeconds + 30).clamp(30, 31536000)),
-              ),
-            )),
+            if (timed)
+              Expanded(
+                  child: SizedBox(
+                key: const ValueKey('trade-duration-control'),
+                height: 36,
+                child: _TradeStepper(
+                  label: 'Duration',
+                  value: durationSeconds >= 86400
+                      ? '${durationSeconds ~/ 86400}d ${(durationSeconds % 86400) ~/ 3600}h'
+                      : '${(durationSeconds ~/ 3600).toString().padLeft(2, '0')}:${((durationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}:${(durationSeconds % 60).toString().padLeft(2, '0')}',
+                  onTap: submitting ? null : () => _editContractValue(true),
+                  decrease: submitting
+                      ? null
+                      : () => setState(() => durationSeconds =
+                          (durationSeconds - 30).clamp(30, 31536000)),
+                  increase: submitting
+                      ? null
+                      : () => setState(() => durationSeconds =
+                          (durationSeconds + 30).clamp(30, 31536000)),
+                ),
+              ))
+            else
+              const Expanded(
+                  child: Center(
+                      child: Text('No expiry · manual close · paper price',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: PrimeVestDesignSystem.textMuted)))),
           ]),
+          if (timed)
+            _DurationPresets(
+              value: durationSeconds,
+              compact: true,
+              onSelected: submitting
+                  ? null
+                  : (value) => setState(() => durationSeconds = value),
+            ),
           const SizedBox(height: 3),
           Row(children: [
             Expanded(
@@ -2172,6 +2318,195 @@ class ProfilePage extends ConsumerWidget {
 
 void _result(BuildContext context, bool ok, String message) {
   showTopNotification(message, success: ok);
+}
+
+class _ActiveTradeItem {
+  const _ActiveTradeItem({
+    required this.id,
+    required this.assetId,
+    required this.title,
+    required this.detail,
+    required this.value,
+    required this.positive,
+    this.onClose,
+  });
+  final String id;
+  final String assetId;
+  final String title;
+  final String detail;
+  final String value;
+  final bool positive;
+  final VoidCallback? onClose;
+}
+
+class _ActiveTradesStrip extends StatelessWidget {
+  const _ActiveTradesStrip({required this.items, required this.onSelect});
+  final List<_ActiveTradeItem> items;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        key: const ValueKey('active-trades-strip'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(children: [
+              const Icon(Icons.layers_outlined,
+                  size: 15, color: PrimeVestDesignSystem.primaryGold),
+              const SizedBox(width: 5),
+              Text('Open trades (${items.length})',
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w800)),
+              if (items.isEmpty) ...[
+                const SizedBox(width: 8),
+                const Text('None yet',
+                    style: TextStyle(
+                        color: PrimeVestDesignSystem.textMuted, fontSize: 10)),
+              ],
+            ]),
+          ),
+          if (items.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            SizedBox(
+              height: 78,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 7),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return InkWell(
+                    key: ValueKey('open-trade-${item.id}'),
+                    borderRadius: BorderRadius.circular(11),
+                    onTap: () => onSelect(item.assetId),
+                    child: Container(
+                      width: 236,
+                      padding: const EdgeInsets.fromLTRB(10, 6, 7, 5),
+                      decoration: BoxDecoration(
+                        color: PrimeVestDesignSystem.surfaceDark,
+                        border: Border.all(color: const Color(0xFF514537)),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Expanded(
+                                  child: Text(item.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800))),
+                              Text(item.value,
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: item.positive
+                                          ? PrimeVestDesignSystem.positive
+                                          : PrimeVestDesignSystem.negative)),
+                            ]),
+                            const SizedBox(height: 2),
+                            Row(children: [
+                              Expanded(
+                                  child: Text(item.detail,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 9,
+                                          color: PrimeVestDesignSystem
+                                              .textMuted))),
+                              if (item.onClose != null)
+                                TextButton(
+                                    onPressed: item.onClose,
+                                    style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4),
+                                        minimumSize: const Size(0, 22)),
+                                    child: const Text('Close',
+                                        style: TextStyle(fontSize: 10))),
+                            ]),
+                          ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      );
+}
+
+class _TradeModeSelector extends StatelessWidget {
+  const _TradeModeSelector(
+      {required this.timed, required this.onChanged, this.compact = false});
+  final bool timed;
+  final bool compact;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        key: const ValueKey('trade-mode-selector'),
+        height: compact ? 32 : 38,
+        width: double.infinity,
+        child: SegmentedButton<bool>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: true, label: Text('Timed')),
+            ButtonSegment(value: false, label: Text('No expiry')),
+          ],
+          selected: {timed},
+          onSelectionChanged: onChanged == null
+              ? null
+              : (selection) => onChanged!(selection.first),
+          style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStateProperty.all(
+                  const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+        ),
+      );
+}
+
+class _DurationPresets extends StatelessWidget {
+  const _DurationPresets(
+      {required this.value, required this.onSelected, this.compact = false});
+  final int value;
+  final bool compact;
+  final ValueChanged<int>? onSelected;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: compact ? 30 : 37,
+        child: ListView(scrollDirection: Axis.horizontal, children: [
+          for (final (seconds, label) in [
+            (60, '1m'),
+            (300, '5m'),
+            (600, '10m'),
+            (900, '15m'),
+            (3600, '1h')
+          ])
+            Padding(
+                padding: const EdgeInsets.only(right: 5),
+                child: TextButton(
+                  key: ValueKey('duration-preset-$seconds'),
+                  onPressed:
+                      onSelected == null ? null : () => onSelected!(seconds),
+                  style: TextButton.styleFrom(
+                    minimumSize: Size(compact ? 38 : 42, compact ? 28 : 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: value == seconds
+                        ? const Color(0x44F8B425)
+                        : const Color(0xFF332D25),
+                  ),
+                  child: Text(label, style: const TextStyle(fontSize: 10)),
+                )),
+        ]),
+      );
 }
 
 class _TradeStepper extends StatelessWidget {

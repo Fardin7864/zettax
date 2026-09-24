@@ -11,6 +11,14 @@ void main() {
     expect(zoomed / ((360 - 64) / 21), greaterThan(.97));
   });
 
+  test('future chart space separates the latest candle from the price scale',
+      () {
+    expect(chartLatestCandleFraction(42, 42 * .18), lessThan(.85));
+    expect(chartLatestCandleFraction(42, 42 * .65), lessThan(.62));
+    expect(chartBodyWidth(360, 21, futureSlots: 21 * .18),
+        greaterThan(chartBodyWidth(360, 42, futureSlots: 42 * .18) * 1.8));
+  });
+
   test('moving averages use only observed closing prices and volumes', () {
     final observed = List.generate(
         100,
@@ -134,5 +142,25 @@ void main() {
     await tester.pump();
 
     expect(loadRequests, greaterThan(0));
+  });
+
+  testWidgets('dragging left moves the last candle toward mid-screen',
+      (tester) async {
+    double? latestFraction;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+            width: 420,
+            child: OhlcChart(
+              candles: candles,
+              precision: 2,
+              onFutureSpaceChanged: (value) => latestFraction = value,
+            )),
+      ),
+    ));
+    await tester.drag(find.byType(OhlcChart), const Offset(-230, 0));
+    await tester.pump();
+    expect(latestFraction, isNotNull);
+    expect(latestFraction!, lessThan(.7));
   });
 }

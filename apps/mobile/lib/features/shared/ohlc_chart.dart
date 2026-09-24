@@ -42,10 +42,14 @@ double? candleAverage(List<ChartCandle> candles, int index, int period,
   return sum / period;
 }
 
-double chartBodyWidth(double viewportWidth, int visibleCount) {
+double chartBodyWidth(double viewportWidth, int visibleCount,
+    {double futureSlots = 0}) {
   final plotWidth = max(0.0, viewportWidth - 64);
-  return max(1.0, plotWidth / max(1, visibleCount) * .98);
+  return max(1.0, plotWidth / max(1, visibleCount + futureSlots) * .98);
 }
+
+double chartLatestCandleFraction(int visibleCount, double futureSlots) =>
+    (visibleCount - .5) / max(1, visibleCount + futureSlots);
 
 class ChartTradeMarker {
   const ChartTradeMarker({
@@ -73,6 +77,7 @@ class OhlcChart extends StatefulWidget {
     this.compact = false,
     this.onSelectionChanged,
     this.onViewportChanged,
+    this.onFutureSpaceChanged,
     this.onLoadOlder,
     this.tradeMarkers = const [],
     this.lineMode = false,
@@ -83,6 +88,7 @@ class OhlcChart extends StatefulWidget {
   final bool compact;
   final ValueChanged<ChartCandle?>? onSelectionChanged;
   final void Function(int startIndex, int endIndex)? onViewportChanged;
+  final ValueChanged<double>? onFutureSpaceChanged;
   final VoidCallback? onLoadOlder;
   final List<ChartTradeMarker> tradeMarkers;
   final bool lineMode;
@@ -97,6 +103,8 @@ class _OhlcChartState extends State<OhlcChart> {
   int? selectedIndex;
   int _scaleStartVisible = 42;
   int _scaleStartEnd = 0;
+  double futureSlots = 0;
+  double _scaleStartFutureSlots = 0;
   Offset _scaleStartFocal = Offset.zero;
   double _canvasWidth = 1;
 
@@ -126,6 +134,7 @@ class _OhlcChartState extends State<OhlcChart> {
   void _resetViewport() {
     endIndex = widget.candles.length;
     visibleCount = min(42, max(1, widget.candles.length));
+    futureSlots = visibleCount * .18;
     selectedIndex = null;
   }
 
@@ -145,6 +154,7 @@ class _OhlcChartState extends State<OhlcChart> {
           onScaleStart: (details) {
             _scaleStartVisible = visibleCount;
             _scaleStartEnd = endIndex;
+            _scaleStartFutureSlots = futureSlots;
             _scaleStartFocal = details.localFocalPoint;
           },
           onScaleUpdate: (details) {
@@ -155,30 +165,39 @@ class _OhlcChartState extends State<OhlcChart> {
                       minimum,
                       maxVisible,
                     );
-            final candleWidth = max(1.0, (_canvasWidth - 64) / nextVisible);
-            final movedCandles =
-                ((details.localFocalPoint.dx - _scaleStartFocal.dx) /
-                        candleWidth)
-                    .round();
-            final nextEnd = (_scaleStartEnd - movedCandles).clamp(
-              nextVisible,
-              widget.candles.length,
-            );
+            final defaultFuture = nextVisible * .18;
+            final startingFuture =
+                _scaleStartFutureSlots * nextVisible / _scaleStartVisible;
+            final candleWidth =
+                max(1.0, (_canvasWidth - 64) / (nextVisible + startingFuture));
+            final movedSlots =
+                (details.localFocalPoint.dx - _scaleStartFocal.dx) /
+                    candleWidth;
+            final virtualRight = _scaleStartEnd + startingFuture - movedSlots;
+            final nextFuture = (virtualRight - widget.candles.length)
+                .clamp(defaultFuture, nextVisible * .65);
+            final nextEnd = (virtualRight - nextFuture)
+                .round()
+                .clamp(nextVisible, widget.candles.length);
             setState(() {
               visibleCount = nextVisible;
               endIndex = nextEnd;
+              futureSlots = nextFuture;
               selectedIndex = null;
             });
             widget.onSelectionChanged?.call(null);
             widget.onViewportChanged?.call(endIndex - visibleCount, endIndex);
-            if (endIndex == visibleCount && movedCandles > 0) {
+            widget.onFutureSpaceChanged
+                ?.call(chartLatestCandleFraction(visibleCount, futureSlots));
+            if (endIndex == visibleCount && movedSlots > 0) {
               widget.onLoadOlder?.call();
             }
           },
           onTapDown: (details) {
             final start = max(0, endIndex - visibleCount);
             final visible = widget.candles.sublist(start, endIndex);
-            final timeline = _CandleTimeline(visible, _canvasWidth);
+            final timeline =
+                _CandleTimeline(visible, _canvasWidth, futureSlots);
             var local = 0;
             var nearestDistance = double.infinity;
             for (var index = 0; index < visible.length; index++) {
@@ -203,6 +222,7 @@ class _OhlcChartState extends State<OhlcChart> {
               precision: widget.precision,
               tradeMarkers: widget.tradeMarkers,
               lineMode: widget.lineMode,
+              futureSlots: futureSlots,
             ),
             child: SizedBox(
               width: double.infinity,
@@ -232,6 +252,7 @@ class _CandlePainter extends CustomPainter {
     required this.precision,
     required this.tradeMarkers,
     required this.lineMode,
+    required this.futureSlots,
   });
 
   final List<ChartCandle> candles;
@@ -241,6 +262,7 @@ class _CandlePainter extends CustomPainter {
   final int precision;
   final List<ChartTradeMarker> tradeMarkers;
   final bool lineMode;
+  final double futureSlots;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -285,7 +307,7 @@ class _CandlePainter extends CustomPainter {
           precision: precision);
     }
 
-    final timeline = _CandleTimeline(visible, size.width);
+    final timeline = _CandleTimeline(visible, size.width, futureSlots);
     double candleX(int index) => lineMode && index == visible.length - 1
         ? timeline.xFor(DateTime.fromMillisecondsSinceEpoch(
             min(DateTime.now().millisecondsSinceEpoch, timeline.latestTime)))
@@ -613,11 +635,12 @@ class _CandlePainter extends CustomPainter {
       oldDelegate.endIndex != endIndex ||
       oldDelegate.selectedIndex != selectedIndex ||
       oldDelegate.tradeMarkers != tradeMarkers ||
-      oldDelegate.lineMode != lineMode;
+      oldDelegate.lineMode != lineMode ||
+      oldDelegate.futureSlots != futureSlots;
 }
 
 class _CandleTimeline {
-  _CandleTimeline(this.candles, this.width)
+  _CandleTimeline(this.candles, this.width, this.futureSlots)
       : left = 2,
         right = max(2, width - 62) {
     final lastTime = candles.last.time.millisecondsSinceEpoch;
@@ -631,12 +654,13 @@ class _CandleTimeline {
       DateTime.now().millisecondsSinceEpoch,
       lastTime + sampleStep,
     );
-    spacing = (right - left) / max(1, candles.length);
-    bodyWidth = chartBodyWidth(width, candles.length);
+    spacing = (right - left) / max(1, candles.length + futureSlots);
+    bodyWidth = chartBodyWidth(width, candles.length, futureSlots: futureSlots);
   }
 
   final List<ChartCandle> candles;
   final double width;
+  final double futureSlots;
   final double left;
   final double right;
   late final int latestTime;
