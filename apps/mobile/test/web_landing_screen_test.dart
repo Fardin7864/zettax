@@ -1,9 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:primevest_mobile/features/onboarding/web_landing_screen.dart';
+import 'package:primevest_mobile/features/onboarding/reference_landing_screen.dart';
 
 void main() {
+  testWidgets('redesigned landing page has no layout overflow across screens',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    for (final width in <double>[320, 360, 390, 430, 768, 1024, 1440]) {
+      tester.view.physicalSize = Size(width, 850);
+      await tester.pumpWidget(ProviderScope(
+          key: ValueKey(width),
+          child: const MaterialApp(home: WebLandingScreen())));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(tester.takeException(), isNull, reason: 'width $width');
+      expect(find.byKey(const Key('navbar-download')), findsOneWidget);
+    }
+  });
+
   testWidgets(
       'navbar keeps the primary download action visible at all target widths',
       (tester) async {
@@ -87,7 +105,7 @@ void main() {
     expect(find.text('Try Demo Trading'), findsOneWidget);
   });
 
-  testWidgets('landing page keeps its download heading readable on desktop',
+  testWidgets('landing page keeps its hero and download visible on desktop',
       (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -100,7 +118,7 @@ void main() {
         const ProviderScope(child: MaterialApp(home: WebLandingScreen())));
     await tester.pump(const Duration(milliseconds: 700));
     await tester.scrollUntilVisible(
-      find.text('Your workspace, wherever you are.'),
+      find.text('Explore Global Markets'),
       700,
       scrollable: find.byType(Scrollable).first,
     );
@@ -110,7 +128,7 @@ void main() {
     expect(find.byKey(const Key('navbar-download')), findsOneWidget);
     expect(tester.getTopLeft(find.byKey(const Key('navbar-download'))).dy,
         lessThan(80));
-    expect(tester.getSize(find.text('Your workspace, wherever you are.')).width,
+    expect(tester.getSize(find.text('Explore Global Markets')).width,
         greaterThan(250));
     expect(find.byKey(const Key('navbar-download')), findsOneWidget);
   });
@@ -129,7 +147,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Start demo trading'), findsOneWidget);
+    expect(find.text('Try Demo Trading'), findsWidgets);
     expect(find.byKey(const Key('navbar-download')), findsOneWidget);
   });
 }

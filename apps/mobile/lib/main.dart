@@ -12,7 +12,7 @@ import 'package:primevest_mobile/features/auth/auth_screen.dart';
 import 'package:primevest_mobile/features/home/home_screen.dart';
 import 'package:primevest_mobile/features/funding/funding_screens.dart';
 import 'package:primevest_mobile/features/onboarding/welcome_screen.dart';
-import 'package:primevest_mobile/features/onboarding/web_landing_screen.dart';
+import 'package:primevest_mobile/features/onboarding/reference_landing_screen.dart';
 import 'package:primevest_mobile/features/portfolio/demo_transactions_screen.dart';
 import 'package:primevest_mobile/features/profile/education_screen.dart';
 import 'package:primevest_mobile/features/profile/language_screen.dart';
