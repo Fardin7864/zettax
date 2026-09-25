@@ -8,98 +8,244 @@ import 'package:primevest_mobile/app/design_system.dart';
 import 'package:primevest_mobile/features/shared/live_trade_chart.dart';
 import 'package:primevest_mobile/market/market_data_providers.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:primevest_mobile/features/onboarding/download_analytics_stub.dart'
+    if (dart.library.js_interop) 'package:primevest_mobile/features/onboarding/download_analytics_web.dart';
 
 const _gold = PrimeVestDesignSystem.primaryGold;
 const _muted = PrimeVestDesignSystem.textMuted;
 const _downloadUrl =
     'https://play.google.com/store/apps/details?id=com.primevest.app';
 
-class WebLandingScreen extends StatelessWidget {
+class WebLandingScreen extends StatefulWidget {
   const WebLandingScreen({super.key});
+
+  @override
+  State<WebLandingScreen> createState() => _WebLandingScreenState();
+}
+
+class _WebLandingScreenState extends State<WebLandingScreen> {
+  final _marketsKey = GlobalKey();
+  final _featuresKey = GlobalKey();
+  final _stepsKey = GlobalKey();
+  final _demoKey = GlobalKey();
+  final _faqKey = GlobalKey();
 
   void _trade(BuildContext context) => context.go('/home?tab=2');
 
-  Future<void> _download() => launchUrl(Uri.parse(_downloadUrl));
+  Future<void> _download(String source) async {
+    trackDownloadClick(source);
+    await launchUrl(Uri.parse(_downloadUrl), webOnlyWindowName: '_blank');
+  }
+
+  void _scrollTo(GlobalKey key) {
+    final target = key.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(target,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOut,
+          alignment: 0);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 800;
+    final navCompact = width < 1340;
     final inset = compact ? 20.0 : 48.0;
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
-          Container(
-            height: compact ? 68 : 82,
-            padding: EdgeInsets.symmetric(horizontal: inset),
-            decoration: const BoxDecoration(
-              color: Color(0xFF211F1D),
-              border: Border(bottom: BorderSide(color: Color(0xFF3D352B))),
-            ),
-            child: Row(children: [
-              const ZettaxMark(height: 34),
-              const SizedBox(width: 10),
-              const Text('Zettax',
-                  style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              if (!compact) ...[
-                TextButton(
-                    onPressed: () => context.push('/education'),
-                    child: const Text('Learn')),
-                const SizedBox(width: 10),
-                TextButton(
-                    onPressed: () => context.push('/login'),
-                    child: const Text('Sign in')),
-                const SizedBox(width: 12),
-              ],
-              FilledButton.icon(
-                onPressed: () => _trade(context),
-                icon: const Icon(Icons.arrow_outward, size: 17),
-                label: Text(compact ? 'Trade' : 'Try demo trading'),
-                style: FilledButton.styleFrom(
-                  minimumSize: Size(0, compact ? 40 : 44),
-                  padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 20),
-                ),
-              ),
-            ]),
+          LandingNavbar(
+            compact: navCompact,
+            onMarkets: () => _scrollTo(_marketsKey),
+            onFeatures: () => _scrollTo(_featuresKey),
+            onHowItWorks: () => _scrollTo(_stepsKey),
+            onDemo: () => _scrollTo(_demoKey),
+            onLearn: () => context.push('/education'),
+            onFaq: () => _scrollTo(_faqKey),
+            onLogin: () => context.push('/login'),
+            onTryDemo: () => _trade(context),
+            onDownload: () => _download('navbar'),
           ),
           Expanded(
-            child: ListView(children: [
+            child: SingleChildScrollView(
+                child: Column(children: [
               _LandingHero(
                 compact: compact,
                 inset: inset,
                 onTrade: () => _trade(context),
-                onDownload: _download,
+                onDownload: () => _download('hero'),
               ),
               _MarketBand(compact: compact, inset: inset),
-              _LivePreview(
-                  compact: compact,
-                  inset: inset,
-                  onTrade: () => _trade(context)),
-              _MarketsShowcase(
-                  compact: compact,
-                  inset: inset,
-                  onTrade: () => _trade(context)),
-              _FeatureSection(compact: compact, inset: inset),
-              _StepsSection(compact: compact, inset: inset),
-              _FaqSection(compact: compact, inset: inset),
+              KeyedSubtree(
+                  key: _demoKey,
+                  child: _LivePreview(
+                      compact: compact,
+                      inset: inset,
+                      onTrade: () => _trade(context))),
+              KeyedSubtree(
+                  key: _marketsKey,
+                  child: _MarketsShowcase(
+                      compact: compact,
+                      inset: inset,
+                      onTrade: () => _trade(context))),
+              KeyedSubtree(
+                  key: _featuresKey,
+                  child: _FeatureSection(compact: compact, inset: inset)),
+              KeyedSubtree(
+                  key: _stepsKey,
+                  child: _StepsSection(compact: compact, inset: inset)),
+              KeyedSubtree(
+                  key: _faqKey,
+                  child: _FaqSection(compact: compact, inset: inset)),
               _DownloadSection(
                   compact: compact,
                   inset: inset,
                   onTrade: () => _trade(context),
-                  onDownload: _download),
+                  onDownload: () => _download('section')),
               _LandingFooter(
                 compact: compact,
                 inset: inset,
                 onTrade: () => _trade(context),
-                onDownload: _download,
+                onDownload: () => _download('footer'),
               ),
-            ]),
+            ])),
           ),
         ]),
       ),
     );
   }
+}
+
+class LandingNavbar extends StatelessWidget {
+  const LandingNavbar(
+      {super.key,
+      required this.compact,
+      required this.onMarkets,
+      required this.onFeatures,
+      required this.onHowItWorks,
+      required this.onDemo,
+      required this.onLearn,
+      required this.onFaq,
+      required this.onLogin,
+      required this.onTryDemo,
+      required this.onDownload});
+
+  final bool compact;
+  final VoidCallback onMarkets,
+      onFeatures,
+      onHowItWorks,
+      onDemo,
+      onLearn,
+      onFaq,
+      onLogin,
+      onTryDemo,
+      onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final narrow = width < 360;
+    final logoTextFits =
+        !narrow || MediaQuery.textScalerOf(context).scale(17) <= 20;
+    final links = <(String, VoidCallback)>[
+      ('Markets', onMarkets),
+      ('Features', onFeatures),
+      ('How It Works', onHowItWorks),
+      ('Demo Trading', onDemo),
+      ('Learn', onLearn),
+      ('FAQ', onFaq),
+      ('Login', onLogin),
+      ('Try Demo Trading', onTryDemo),
+    ];
+    return Container(
+      height: compact ? 64 : 74,
+      padding:
+          EdgeInsets.symmetric(horizontal: compact ? (narrow ? 10 : 16) : 32),
+      decoration: const BoxDecoration(
+        color: Color(0xF5211F1D),
+        border: Border(bottom: BorderSide(color: Color(0xFF3D352B))),
+      ),
+      child: Row(children: [
+        ZettaxMark(height: compact ? (narrow ? 27 : 30) : 34),
+        if (logoTextFits) ...[
+          SizedBox(width: compact ? 5 : 8),
+          Text('Zettax',
+              style: TextStyle(
+                  fontSize: compact ? (narrow ? 17 : 19) : 22,
+                  fontWeight: FontWeight.w800)),
+        ],
+        const Spacer(),
+        if (!compact) ...[
+          _navLink('Markets', onMarkets),
+          _navLink('Features', onFeatures),
+          _navLink('How It Works', onHowItWorks),
+          _navLink('Demo', onDemo),
+          _navLink('Learn', onLearn),
+          _navLink('FAQ', onFaq),
+          const Spacer(),
+          _navLink('Login', onLogin),
+          const SizedBox(width: 5),
+          OutlinedButton(onPressed: onTryDemo, child: const Text('Try Demo')),
+          const SizedBox(width: 9),
+        ],
+        if (compact)
+          FilledButton(
+            key: const Key('navbar-download'),
+            onPressed: onDownload,
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: const Color(0xFF17130B),
+              minimumSize: const Size(0, 44),
+              padding: EdgeInsets.symmetric(horizontal: narrow ? 9 : 12),
+              textStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            ),
+            child: const Text('Download', maxLines: 1),
+          )
+        else
+          FilledButton.icon(
+            key: const Key('navbar-download'),
+            onPressed: onDownload,
+            icon: const Icon(Icons.download_rounded, size: 17),
+            label: const Text('Download App', maxLines: 1),
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: const Color(0xFF17130B),
+              minimumSize: const Size(0, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              textStyle:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+          ),
+        if (compact) ...[
+          SizedBox(width: narrow ? 5 : 8),
+          PopupMenuButton<int>(
+            key: const Key('navbar-menu'),
+            tooltip: 'Open menu',
+            icon: const Icon(Icons.menu_rounded),
+            constraints: const BoxConstraints(minWidth: 210),
+            onSelected: (index) => links[index].$2(),
+            itemBuilder: (_) => [
+              for (var i = 0; i < links.length; i++)
+                PopupMenuItem<int>(value: i, child: Text(links[i].$1)),
+            ],
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _navLink(String label, VoidCallback action) => TextButton(
+        onPressed: action,
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          textStyle: const TextStyle(fontSize: 13),
+        ),
+        child: Text(label, maxLines: 1),
+      );
 }
 
 class _LandingHero extends StatelessWidget {
@@ -1058,7 +1204,7 @@ class _LandingFooter extends StatelessWidget {
           else
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(child: _brand()),
-              _links(context),
+              SizedBox(width: 540, child: _links(context)),
             ]),
           const SizedBox(height: 35),
           const Divider(color: Color(0xFF3D352B)),

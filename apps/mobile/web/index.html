@@ -40,6 +40,26 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    window.zettaxTrackDownload = function (source) {
+      var deviceType = /iPad|iPhone|iPod/i.test(navigator.userAgent)
+        ? 'ios'
+        : /Android/i.test(navigator.userAgent) ? 'android' : 'desktop';
+      var event = {
+        event: source === 'navbar' ? 'navbar_download_clicked' : 'download_clicked',
+        source: source,
+        deviceType: deviceType,
+        currentPath: location.pathname
+      };
+      // Same-origin, best-effort event delivery. Never include account details.
+      try {
+        var body = new Blob([JSON.stringify(event)], {type: 'application/json'});
+        if (!navigator.sendBeacon || !navigator.sendBeacon('/api/v1/site-events', body)) {
+          fetch('/api/v1/site-events', {method: 'POST', body: body, keepalive: true});
+        }
+      } catch (_) {}
+    };
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

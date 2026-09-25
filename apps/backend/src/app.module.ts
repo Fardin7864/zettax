@@ -25,6 +25,7 @@ import { FundingModule } from "./funding/funding.module";
 import { AccountsModule } from "./accounts/accounts.module";
 import { UsersModule } from "./users/users.module";
 import { TimedContractsModule } from "./timed-contracts/timed-contracts.module";
+import { SiteEventsController } from "./site-events/site-events.controller";
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { TimedContractsModule } from "./timed-contracts/timed-contracts.module";
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
+  controllers: [SiteEventsController],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
