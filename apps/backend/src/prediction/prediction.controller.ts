@@ -38,35 +38,35 @@ export class PredictionController {
   }
 
   @Get("questions")
-  questions(@Query() query: PredictionQuestionsQueryDto) {
-    return { data: this.predictions.list(query) };
+  async questions(@Query() query: PredictionQuestionsQueryDto) {
+    return { data: await this.predictions.list(query) };
   }
 
   @Get("questions/:id")
-  question(@Param("id", ParseUUIDPipe) id: string) {
-    return { data: this.predictions.get(id) };
+  async question(@Param("id", ParseUUIDPipe) id: string) {
+    return { data: await this.predictions.get(id) };
   }
 
   @Get("mine")
   @UseGuards(AccessTokenGuard)
-  mine(@Req() request: AuthenticatedRequest) {
-    return { data: this.predictions.myPositions(request.auth.userId) };
+  async mine(@Req() request: AuthenticatedRequest) {
+    return { data: await this.predictions.myPositions(request.auth.userId) };
   }
 
   @Post("questions")
   @UseGuards(AccessTokenGuard)
   @Throttle({ default: { limit: 3, ttl: 60 * 60_000 } })
-  create(
+  async create(
     @Req() request: AuthenticatedRequest,
     @Body() body: CreatePredictionQuestionDto,
   ) {
-    return { data: this.predictions.create(request.auth.userId, body) };
+    return { data: await this.predictions.create(request.auth.userId, body) };
   }
 
   @Post("platform/questions")
   @UseGuards(AdminGuard)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  platformCreate(
+  async platformCreate(
     @Req() request: AdminRequest,
     @Body() body: CreatePredictionQuestionDto,
   ) {
@@ -80,20 +80,20 @@ export class PredictionController {
         403,
       );
     }
-    return { data: this.predictions.create(null, body) };
+    return { data: await this.predictions.create(null, body) };
   }
 
   @Post("questions/:id/positions")
   @UseGuards(AccessTokenGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  place(
+  async place(
     @Req() request: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
     @Headers("idempotency-key") idempotencyKey: string | undefined,
     @Body() body: PlacePredictionDto,
   ) {
     return {
-      data: this.predictions.place(
+      data: await this.predictions.place(
         request.auth.userId,
         id,
         requireIdempotencyKey(idempotencyKey),
