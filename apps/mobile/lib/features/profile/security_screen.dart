@@ -15,6 +15,9 @@ class SecurityScreen extends ConsumerStatefulWidget {
 
 class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   late Future<List<JsonObject>> sessions;
+  late Future<JsonObject> verification;
+  final authenticatorCode = TextEditingController();
+  String? pendingSecret;
   bool busy = false;
 
   @override
@@ -23,11 +26,60 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     sessions = ref.read(sessionProvider).phase == SessionPhase.authenticated
         ? ref.read(authRepositoryProvider).sessions()
         : Future.value(const []);
+    verification = ref.read(sessionProvider).phase == SessionPhase.authenticated
+        ? ref.read(authRepositoryProvider).verificationStatus()
+        : Future.value({});
   }
 
   void refresh() => setState(() {
         sessions = ref.read(authRepositoryProvider).sessions();
+        verification = ref.read(authRepositoryProvider).verificationStatus();
       });
+
+  @override
+  void dispose() {
+    authenticatorCode.dispose();
+    super.dispose();
+  }
+
+  Future<void> beginAuthenticator() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final result =
+          await ref.read(authRepositoryProvider).beginAuthenticator();
+      if (mounted) setState(() => pendingSecret = result['secret']?.toString());
+    } on ApiFailure catch (error) {
+      showTopNotification(error.message, success: false);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> confirmAuthenticator() async {
+    if (busy || !RegExp(r'^\d{6}$').hasMatch(authenticatorCode.text.trim())) {
+      showTopNotification(
+          'Enter the six-digit code from your authenticator app.',
+          success: false);
+      return;
+    }
+    setState(() => busy = true);
+    try {
+      await ref
+          .read(authRepositoryProvider)
+          .confirmAuthenticator(authenticatorCode.text.trim());
+      if (mounted) {
+        setState(() => pendingSecret = null);
+        authenticatorCode.clear();
+        verification = ref.read(authRepositoryProvider).verificationStatus();
+        showTopNotification('Authenticator verification is enabled.');
+      }
+    } on ApiFailure catch (error) {
+      showTopNotification(error.message, success: false);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
 
   Future<void> revoke(String id) async {
     if (busy) return;
@@ -172,6 +224,76 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 await sessions;
               },
               child: ListView(padding: const EdgeInsets.all(20), children: [
+                const Text('Withdrawal verification',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                    'Every withdrawal requires a fresh six-digit code. An authenticator app is recommended; email codes are available when email delivery is configured.'),
+                const SizedBox(height: 10),
+                FutureBuilder<JsonObject>(
+                  future: verification,
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return ListTile(
+                        title: const Text('Authenticator app'),
+                        subtitle: Text(snapshot.hasError
+                            ? 'Verification settings are temporarily unavailable.'
+                            : 'Loading verification settings…'),
+                      );
+                    }
+                    final enabled =
+                        snapshot.data?['authenticatorEnabled'] == true;
+                    return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ListTile(
+                            leading: Icon(enabled
+                                ? Icons.verified_user_outlined
+                                : Icons.security_outlined),
+                            title: Text(enabled
+                                ? 'Authenticator app enabled'
+                                : 'Set up authenticator app'),
+                            subtitle: Text(enabled
+                                ? 'Use a new code for every withdrawal.'
+                                : 'Google Authenticator, Microsoft Authenticator, and compatible apps work.'),
+                            trailing: enabled
+                                ? null
+                                : TextButton(
+                                    onPressed: busy ? null : beginAuthenticator,
+                                    child: const Text('Set up')),
+                          ),
+                          if (pendingSecret != null) ...[
+                            const Text(
+                                'Add a new account in your authenticator app and enter this setup key:'),
+                            const SizedBox(height: 8),
+                            SelectableText(pendingSecret!,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2)),
+                            const SizedBox(height: 8),
+                            TextField(
+                                controller: authenticatorCode,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                decoration: const InputDecoration(
+                                    labelText: 'Six-digit code')),
+                            FilledButton(
+                                onPressed: busy ? null : confirmAuthenticator,
+                                child: const Text('Enable authenticator')),
+                          ],
+                          ListTile(
+                            leading: const Icon(Icons.mail_outline),
+                            title: const Text('Email verification'),
+                            subtitle: Text(snapshot.data?['emailAvailable'] ==
+                                    true
+                                ? 'Codes can be sent to ${snapshot.data?['email']}.'
+                                : 'Email codes will be available once mail delivery is configured.'),
+                          ),
+                        ]);
+                  },
+                ),
+                const SizedBox(height: 20),
                 const Text('Active sessions',
                     style:
                         TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -261,7 +383,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                    'Changing your password signs out other devices. Two-factor authentication is not available yet. Never share your password or sign-in codes.'),
+                    'Changing your password signs out other devices. Never share your password, setup key, or verification codes.'),
               ]),
             ),
     );

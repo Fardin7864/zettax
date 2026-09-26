@@ -111,6 +111,27 @@ class AuthRepository {
         },
         (value) => value);
   }
+
+  Future<JsonObject> verificationStatus() async {
+    final response =
+        await _client.get('/verification/status', (value) => _object(value));
+    return response.data;
+  }
+
+  Future<JsonObject> beginAuthenticator() async {
+    final response = await _client.post(
+        '/verification/authenticator/setup', null, (value) => _object(value));
+    return response.data;
+  }
+
+  Future<void> confirmAuthenticator(String code) async {
+    await _client.post('/verification/authenticator/confirm', {'code': code},
+        (value) => value);
+  }
+
+  Future<void> sendWithdrawalEmailCode() async {
+    await _client.post('/verification/email-code', null, (value) => value);
+  }
 }
 
 JsonObject _object(dynamic value) {

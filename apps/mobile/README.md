@@ -16,6 +16,14 @@ not client-supplied execution prices.
 - Interactive chart periods from 1 minute to 5 years with live updates
 - Guest demo and signed-in account trade flows, moving P/L, settlement and history
 - Deposit and withdrawal requests for authenticated accounts, subject to review
+- Withdrawal codes from an authenticator app or configured email delivery
+- Community posts, image uploads, reactions, comments and replies, shares,
+  and live counts
+- User-created and Zettax-created crypto price prediction questions with
+  Yes/No demo pools, positions, results, and live question updates
+- Real-money prediction controls shown in the app but unavailable until the
+  backend release controls approve them
+- Virtual market-direction predictions with live price charts and history
 - Explicit virtual-balance and market-data disclosures
 
 ## Verify and build
@@ -54,13 +62,13 @@ loopback URL:
 
 ```powershell
 adb reverse tcp:3000 tcp:3000
-flutter run --dart-define=PRIMEVEST_API_BASE_URL=http://127.0.0.1:3000/api/v1
+flutter run --flavor direct --dart-define=PRIMEVEST_API_BASE_URL=http://127.0.0.1:3000/api/v1
 ```
 
 Use an HTTPS endpoint for any deployed environment:
 
 ```powershell
-flutter build apk --release --dart-define=PRIMEVEST_API_BASE_URL=https://api.zettax.app/api/v1
+flutter build apk --release --flavor direct --dart-define=PRIMEVEST_API_BASE_URL=https://api.zettax.app/api/v1
 ```
 
 Android cleartext networking is denied by default. The checked-in network

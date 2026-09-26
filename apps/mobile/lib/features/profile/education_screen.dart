@@ -30,7 +30,7 @@ class EducationScreen extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                    'Your stake is locked when the trade opens. At expiry, the server uses its recorded price source to calculate the payout and returns any payout to your available balance. If the required price is unavailable, the trade remains pending until it can be settled.'),
+                    'Your stake is locked when the trade opens. At expiry, Zettax uses its recorded price source to calculate the payout and returns any payout to your available balance. If the required price is unavailable, the trade remains pending until it can be settled.'),
               )
             ],
           ),
@@ -88,7 +88,7 @@ class RiskDisclosureScreen extends StatelessWidget {
             leading: Icon(Icons.price_change_outlined),
             title: Text('Displayed prices are estimates'),
             subtitle: Text(
-                'Live chart prices can differ from the archived price used by the server at entry and expiry. The running return is an estimate, not a guaranteed payout.'),
+                'Live chart prices can differ from the archived price used at entry and expiry. The running return is an estimate, not a guaranteed payout.'),
           ),
           const ListTile(
             leading: Icon(Icons.schedule_outlined),

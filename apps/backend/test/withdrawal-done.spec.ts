@@ -48,6 +48,7 @@ function setup(status: WithdrawalStatus, virtual = true) {
     ledger as never,
     {} as never,
     outbox as never,
+    {} as never,
   );
   return { service, tx, ledger, outbox };
 }

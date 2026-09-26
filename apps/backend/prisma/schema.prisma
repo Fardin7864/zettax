@@ -128,6 +128,29 @@ enum LedgerTransactionType {
   DEMO_RESET
 }
 
+enum PredictionCondition {
+  ABOVE
+  BELOW
+}
+
+enum PredictionSide {
+  YES
+  NO
+}
+
+enum PredictionQuestionStatus {
+  OPEN
+  SETTLED
+  CANCELLED
+}
+
+enum PredictionPositionResult {
+  PENDING
+  WON
+  LOST
+  REFUNDED
+}
+
 enum LedgerDirection {
   DEBIT
   CREDIT
@@ -218,6 +241,12 @@ model User {
   accountEventStream AccountEventStream?
   accountEvents      AccountEvent[]
   externalIdentities ExternalIdentity[]
+  communityPosts CommunityPost[]
+  communityReactions CommunityReaction[]
+  communityComments CommunityComment[]
+  communityShares CommunityShare[]
+  predictionQuestions PredictionQuestion[]
+  predictionPositions PredictionPosition[]
 
   @@map("users")
 }
@@ -282,6 +311,12 @@ model UserSecurity {
   userId              String    @id @map("user_id") @db.Uuid
   totpEnabled         Boolean   @default(false) @map("totp_enabled")
   encryptedTotpSecret String?   @map("encrypted_totp_secret")
+  pendingTotpSecret   String?   @map("pending_totp_secret")
+  lastTotpCounter     BigInt?   @map("last_totp_counter")
+  emailCodeHash       String?   @map("email_code_hash")
+  emailCodeExpiresAt  DateTime? @map("email_code_expires_at")
+  emailCodeSentAt     DateTime? @map("email_code_sent_at")
+  emailCodeAttempts   Int       @default(0) @map("email_code_attempts")
   passwordChangedAt   DateTime? @map("password_changed_at")
   failedLoginCount    Int       @default(0) @map("failed_login_count")
   lockedUntil         DateTime? @map("locked_until")
@@ -350,6 +385,7 @@ model Account {
   ledgerAccounts LedgerAccount[]
   deposits       DepositRequest[]
   withdrawals    WithdrawalRequest[]
+  predictionPositions PredictionPosition[]
 
   @@unique([userId, mode])
   @@unique([id, userId])
@@ -389,6 +425,7 @@ model Instrument {
   orders            Order[]
   positions         Position[]
   contracts         TimedContract[]
+  predictionQuestions PredictionQuestion[]
   watchlistItems    WatchlistItem[]
   alerts            PriceAlert[]
   sampledPrices     SampledPrice[]
@@ -1018,6 +1055,114 @@ model EvidenceFile {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([ownerId, createdAt])
   @@map("evidence_files")
+}
+
+model CommunityPost {
+  id String @id @default(uuid()) @db.Uuid
+  authorId String @map("author_id") @db.Uuid
+  text String @db.VarChar(2000)
+  imageEvidenceId String? @unique @map("image_evidence_id") @db.Uuid
+  likeCount Int @default(0) @map("like_count")
+  dislikeCount Int @default(0) @map("dislike_count")
+  commentCount Int @default(0) @map("comment_count")
+  shareCount Int @default(0) @map("share_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reactions CommunityReaction[]
+  comments CommunityComment[]
+  shares CommunityShare[]
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("community_posts")
+}
+
+model CommunityReaction {
+  postId String @map("post_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  value String @db.VarChar(8)
+  createdAt DateTime @default(now()) @map("created_at")
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([postId, userId])
+  @@map("community_reactions")
+}
+
+model CommunityComment {
+  id String @id @default(uuid()) @db.Uuid
+  postId String @map("post_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  parentId String? @map("parent_id") @db.Uuid
+  text String @db.VarChar(1000)
+  replyCount Int @default(0) @map("reply_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent CommunityComment? @relation("CommunityCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies CommunityComment[] @relation("CommunityCommentReplies")
+  @@index([postId, createdAt, id])
+  @@index([parentId, createdAt])
+  @@map("community_comments")
+}
+
+model CommunityShare {
+  postId String @map("post_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([postId, userId])
+  @@map("community_shares")
+}
+
+model PredictionQuestion {
+  id String @id @default(uuid()) @db.Uuid
+  creatorId String? @map("creator_id") @db.Uuid
+  instrumentId String @map("instrument_id") @db.Uuid
+  condition PredictionCondition
+  targetPrice Decimal @map("target_price") @db.Decimal(30, 12)
+  referencePrice Decimal @map("reference_price") @db.Decimal(30, 12)
+  referenceSource String @map("reference_source")
+  referenceTimestamp DateTime @map("reference_timestamp")
+  expiresAt DateTime @map("expires_at")
+  status PredictionQuestionStatus @default(OPEN)
+  outcome PredictionSide?
+  settlementPrice Decimal? @map("settlement_price") @db.Decimal(30, 12)
+  settlementSource String? @map("settlement_source")
+  settlementTimestamp DateTime? @map("settlement_timestamp")
+  yesDemoPool Decimal @default(0) @map("yes_demo_pool") @db.Decimal(24, 8)
+  noDemoPool Decimal @default(0) @map("no_demo_pool") @db.Decimal(24, 8)
+  yesRealPool Decimal @default(0) @map("yes_real_pool") @db.Decimal(24, 8)
+  noRealPool Decimal @default(0) @map("no_real_pool") @db.Decimal(24, 8)
+  createdAt DateTime @default(now()) @map("created_at")
+  creator User? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  positions PredictionPosition[]
+  @@index([status, expiresAt])
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([creatorId, status])
+  @@map("prediction_questions")
+}
+
+model PredictionPosition {
+  id String @id @default(uuid()) @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  mode AccountMode
+  side PredictionSide
+  stake Decimal @db.Decimal(24, 8)
+  payoutAmount Decimal? @map("payout_amount") @db.Decimal(24, 8)
+  result PredictionPositionResult @default(PENDING)
+  idempotencyKey String @map("idempotency_key")
+  createdAt DateTime @default(now()) @map("created_at")
+  settledAt DateTime? @map("settled_at")
+  question PredictionQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account Account @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  @@unique([userId, idempotencyKey])
+  @@index([questionId, mode, side])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("prediction_positions")
 }
 
 model AdminChange {

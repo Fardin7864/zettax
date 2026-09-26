@@ -75,8 +75,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   const SizedBox(height: 8),
                   Text(
                     isForgot
-                        ? 'Password recovery is not exposed by the current server yet. No mock reset message will be presented as real.'
-                        : 'Secure authentication uses the Zettax server. You can still skip sign-in and use the isolated guest demo.',
+                        ? 'Password recovery is not available yet. No reset message has been sent.'
+                        : 'Sign in securely with Zettax. You can also skip sign-in and use the isolated guest demo.',
                     style: const TextStyle(
                       color: PrimeVestDesignSystem.textMuted,
                       height: 1.45,
@@ -135,7 +135,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         : Text(isRegister
                             ? 'Create account'
                             : isForgot
-                                ? 'Unavailable until server support lands'
+                                ? 'Password recovery is unavailable'
                                 : 'Sign in'),
                   ),
                   if (!isForgot) ...[
@@ -286,7 +286,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final message = switch (failure) {
       ApiFailure failure => failure.message,
       NativeGoogleSignInFailure failure => failure.message,
-      _ => 'Unable to reach Zettax. Check the server and try again.',
+      _ => 'Unable to reach Zettax. Check your connection and try again.',
     };
     showTopNotification(message, success: false);
   }

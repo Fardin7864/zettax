@@ -70,6 +70,11 @@ export class ControlService {
       _sum: { investmentAmount: true },
       _count: true,
     });
+    const predictions = await this.prisma.predictionPosition.aggregate({
+      where: { mode: "REAL", result: "PENDING" },
+      _sum: { stake: true },
+      _count: true,
+    });
     return {
       customerAssets: customer.toFixed(2),
       reserveAssets: reserve.toFixed(2),
@@ -82,6 +87,10 @@ export class ControlService {
         contracts._sum.investmentAmount ?? new Prisma.Decimal(0)
       ).toFixed(2),
       openContractCount: contracts._count,
+      openPredictionStake: (
+        predictions._sum.stake ?? new Prisma.Decimal(0)
+      ).toFixed(2),
+      openPredictionCount: predictions._count,
       staleAccounts: stale,
       covered:
         customer.greaterThanOrEqualTo(liabilities) &&

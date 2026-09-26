@@ -11,6 +11,6 @@ import { ControlModule } from "../operations/control.service";
   imports: [AuthModule, ComplianceModule, TradingModule, ControlModule],
   controllers: [TimedContractsController],
   providers: [TimedContractsService, ContractPriceService],
-  exports: [TimedContractsService],
+  exports: [TimedContractsService, ContractPriceService],
 })
 export class TimedContractsModule {}

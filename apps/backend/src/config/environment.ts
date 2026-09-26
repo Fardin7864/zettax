@@ -95,6 +95,23 @@ export function validateEnvironment(
         }
       }
     }
+    if (
+      input.ENABLE_WITHDRAWALS === "true" &&
+      !/^[0-9a-f]{64}$/i.test(optionalString(input.MFA_ENCRYPTION_KEY) ?? "")
+    ) {
+      throw new Error(
+        "MFA_ENCRYPTION_KEY must be a 32-byte hex key when withdrawals are enabled",
+      );
+    }
+    if (
+      input.ENABLE_PREDICTIONS === "true" &&
+      requestedMode === "PRODUCTION_APPROVED" &&
+      !(optionalString(input.PREDICTION_REAL_APPROVAL_REFERENCE) ?? "").trim()
+    ) {
+      throw new Error(
+        "PREDICTION_REAL_APPROVAL_REFERENCE is required for real-money predictions",
+      );
+    }
   }
 
   return environment;

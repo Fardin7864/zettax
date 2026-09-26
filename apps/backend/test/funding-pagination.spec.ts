@@ -21,6 +21,7 @@ describe("paginated admin funding history", () => {
         {} as never,
         {} as never,
         {} as never,
+        {} as never,
       );
       const result =
         kind === "deposit"
@@ -53,6 +54,7 @@ describe("paginated admin funding history", () => {
       };
       const service = new FundingService(
         prisma as never,
+        {} as never,
         {} as never,
         {} as never,
         {} as never,

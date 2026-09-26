@@ -8,6 +8,8 @@ import { OutboxPublisherService } from "../database/outbox-publisher.service";
 import { TimedContractsModule } from "../timed-contracts/timed-contracts.module";
 import { TimedContractsService } from "../timed-contracts/timed-contracts.service";
 import { TradingModule } from "../trading/trading.module";
+import { PredictionModule } from "../prediction/prediction.module";
+import { PredictionService } from "../prediction/prediction.service";
 
 @Module({
   imports: [
@@ -20,6 +22,7 @@ import { TradingModule } from "../trading/trading.module";
     ComplianceModule,
     TradingModule,
     TimedContractsModule,
+    PredictionModule,
   ],
 })
 class FinancialWorkerModule {}
@@ -27,6 +30,7 @@ class FinancialWorkerModule {}
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.createApplicationContext(FinancialWorkerModule);
   const contracts = app.get(TimedContractsService);
+  const predictions = app.get(PredictionService);
   const outbox = app.get(OutboxPublisherService);
   let stopping = false;
   const stop = () => {
@@ -34,9 +38,15 @@ async function bootstrap(): Promise<void> {
   };
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
+  let nextQuestionCheck = 0;
   while (!stopping) {
     try {
       await contracts.settleDueBatch(50);
+      await predictions.settleDueBatch(5);
+      if (Date.now() >= nextQuestionCheck) {
+        nextQuestionCheck = Date.now() + 60_000;
+        await predictions.ensurePlatformQuestions();
+      }
       await outbox.publishBatch(100);
     } catch (error) {
       console.error(

@@ -166,8 +166,9 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
         "RELEASE",
         "KYC",
         "PROFILE",
+        "COMMUNITY",
       ].includes(purpose) ||
-      (ownerType === "USER" && !["DEPOSIT", "KYC", "PROFILE"].includes(purpose))
+      (ownerType === "USER" && !["DEPOSIT", "KYC", "PROFILE", "COMMUNITY"].includes(purpose))
     )
       throw new ApiErrorException(
         "EVIDENCE_INVALID",
@@ -204,15 +205,16 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
     try {
       if (!["DEPOSIT", "PROFILE"].includes(purpose))
         await this.scan(file.buffer);
-      bytes = await (
+      const prepared = (
         purpose === "PROFILE"
           ? image
               .rotate()
               .resize(512, 512, { fit: "cover", withoutEnlargement: true })
+          : purpose === "COMMUNITY"
+            ? image.rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
           : image.rotate()
-      )
-        .png()
-        .toBuffer();
+      );
+      bytes = await (purpose === "COMMUNITY" ? prepared.jpeg({ quality: 82 }) : prepared.png()).toBuffer();
       if (!["DEPOSIT", "PROFILE"].includes(purpose)) await this.scan(bytes);
     } catch {
       throw new ApiErrorException(
@@ -286,8 +288,8 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
         ownerType,
         purpose,
         objectKey,
-        filename: "evidence.png",
-        mimeType: "image/png",
+        filename: purpose === "COMMUNITY" ? "community.jpg" : "evidence.png",
+        mimeType: purpose === "COMMUNITY" ? "image/jpeg" : "image/png",
         sha256: createHash("sha256").update(bytes).digest("hex"),
         sizeBytes: bytes.length,
         status: "CLEAN",

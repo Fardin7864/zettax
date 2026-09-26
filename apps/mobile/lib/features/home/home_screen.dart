@@ -422,7 +422,7 @@ class ServerBalanceCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [
-          Text('Demo portfolio • server',
+          Text('Demo portfolio',
               style: TextStyle(color: PrimeVestDesignSystem.textMuted)),
           Spacer(),
           Icon(Icons.cloud_done_outlined,
@@ -1133,8 +1133,7 @@ class _TradePageState extends ConsumerState<TradePage> {
           }
           ref.invalidate(positionsProvider(mode));
           if (context.mounted) {
-            _result(context, true,
-                '${side.name.toUpperCase()} order persisted by the server');
+            _result(context, true, '${side.name.toUpperCase()} order saved');
           }
         } on ApiFailure catch (error) {
           if (context.mounted) _result(context, false, error.message);
@@ -1191,7 +1190,7 @@ class _TradePageState extends ConsumerState<TradePage> {
           ref.invalidate(timedContractsProvider(mode));
           if (context.mounted) {
             _result(context, true,
-                '${direction.name.toUpperCase()} contract persisted by the server');
+                '${direction.name.toUpperCase()} contract saved');
           }
         } on ApiFailure catch (error) {
           if (context.mounted) _result(context, false, error.message);
@@ -1548,7 +1547,7 @@ class _TradePageState extends ConsumerState<TradePage> {
                                 )
                               else
                                 const Text(
-                                    'No expiry · close manually. Paper P/L uses simulated server prices.',
+                                    'No expiry · close manually. Paper P/L uses simulated prices.',
                                     style: TextStyle(
                                         color: PrimeVestDesignSystem.textMuted,
                                         fontSize: 12)),
@@ -2196,7 +2195,7 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                         authenticated
-                            ? 'Server-authenticated account • Bangladesh'
+                            ? 'Zettax account • Bangladesh'
                             : 'Guest practice account • local only',
                         style: const TextStyle(
                             color: PrimeVestDesignSystem.textMuted))
@@ -2230,7 +2229,7 @@ class ProfilePage extends ConsumerWidget {
         if (mode == AccountMode.demo && authenticated)
           const ProfileTile(
             icon: Icons.receipt_long_outlined,
-            title: 'Server demo transactions',
+            title: 'Demo transactions',
             subtitle: 'History view is unavailable in this build',
           ),
         if (mode == AccountMode.real) ...[
@@ -2253,6 +2252,16 @@ class ProfilePage extends ConsumerWidget {
             subtitle: 'Password and signed-in devices',
             onTap: () => context.push('/security')),
         ProfileTile(
+            icon: Icons.forum_outlined,
+            title: 'Community',
+            subtitle: 'Market ideas, images and conversation',
+            onTap: () => context.push('/community')),
+        ProfileTile(
+            icon: Icons.auto_graph_outlined,
+            title: 'Prediction',
+            subtitle: 'Create questions and vote on market outcomes',
+            onTap: () => context.push('/prediction')),
+        ProfileTile(
             icon: Icons.translate,
             title: 'Language',
             subtitle: 'English • বাংলা',
@@ -2274,7 +2283,7 @@ class ProfilePage extends ConsumerWidget {
                 : null,
             icon: const Icon(Icons.restart_alt),
             label: Text(authenticated
-                ? 'Server demo reset unavailable in this build'
+                ? 'Demo reset unavailable in this build'
                 : 'Reset guest demo account')),
         if (session.phase == SessionPhase.authenticated) ...[
           const SizedBox(height: 10),

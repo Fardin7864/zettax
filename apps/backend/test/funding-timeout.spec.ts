@@ -14,6 +14,7 @@ function runner(transaction: ReturnType<typeof vi.fn>) {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   ) as unknown as TransactionRunner;
 }
 

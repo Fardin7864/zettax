@@ -6,9 +6,10 @@ import { FundingController } from "./funding.controller";
 import { FundingService } from "./funding.service";
 import { EvidenceService } from "./evidence.service";
 import { ControlModule } from "../operations/control.service";
+import { VerificationModule } from "../verification/verification.module";
 
 @Module({
-  imports: [AuthModule, ComplianceModule, AdminModule, ControlModule],
+  imports: [AuthModule, ComplianceModule, AdminModule, ControlModule, VerificationModule],
   controllers: [FundingController],
   providers: [FundingService, EvidenceService],
   exports: [FundingService, EvidenceService],

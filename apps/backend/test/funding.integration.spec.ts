@@ -27,6 +27,7 @@ suite("funding evidence and double-entry settlement", () => {
     new LedgerService(),
     admitted,
     new OutboxService(),
+    { verifyWithdrawal: async () => undefined } as never,
   );
   const audit = { requestId: `funding-test-${randomUUID()}` };
   let user: string,
@@ -184,6 +185,8 @@ suite("funding evidence and double-entry settlement", () => {
         paymentMethodId: method,
         amount: "300.00",
         receiverMobile: "+8801712345678",
+        verificationMethod: "AUTHENTICATOR" as const,
+        verificationCode: "123456",
       },
       key = `test:${randomUUID()}`;
     const [one, two] = await Promise.all([
@@ -244,6 +247,8 @@ suite("funding evidence and double-entry settlement", () => {
       paymentMethodId: method,
       amount: "200.00",
       receiverMobile: "+8801712345678",
+      verificationMethod: "AUTHENTICATOR" as const,
+      verificationCode: "123456",
     };
     const row = await funding.createWithdrawal(
       user,
@@ -271,6 +276,7 @@ suite("funding evidence and double-entry settlement", () => {
         new ConfigService({ RELEASE_VERSION: "never-approved" }),
       ),
       new OutboxService(),
+      { verifyWithdrawal: async () => undefined } as never,
     );
     await expect(
       closed.createWithdrawal(user, `test:${randomUUID()}`, body, audit),

@@ -64,6 +64,15 @@ export class CreateWithdrawalDto {
   @ApiProperty({ example: "+8801712345678" })
   @IsString()
   receiverMobile!: string;
+
+  @ApiProperty({ enum: ["AUTHENTICATOR", "EMAIL"] })
+  @IsIn(["AUTHENTICATOR", "EMAIL"])
+  verificationMethod!: "AUTHENTICATOR" | "EMAIL";
+
+  @ApiProperty({ description: "Six-digit withdrawal verification code" })
+  @IsString()
+  @Matches(/^\d{6}$/)
+  verificationCode!: string;
 }
 
 export class UpdateConversionRatesDto {

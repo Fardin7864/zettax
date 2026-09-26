@@ -10,6 +10,7 @@ export type FeatureName =
   | "COMMODITY_TRADING"
   | "INDEX_TRADING"
   | "TIMED_TRADING"
+  | "PREDICTIONS"
   | "DEPOSITS"
   | "WITHDRAWALS";
 
@@ -34,7 +35,11 @@ export class ComplianceService {
     accountMode: "DEMO" | "REAL" = "REAL",
   ): boolean {
     if (accountMode === "DEMO") {
-      return feature === "TIMED_TRADING" || feature.endsWith("_TRADING");
+      return (
+        feature === "TIMED_TRADING" ||
+        feature === "PREDICTIONS" ||
+        feature.endsWith("_TRADING")
+      );
     }
 
     if (this.mode === "SANDBOX") return this.flag(feature);
@@ -68,6 +73,7 @@ export class ComplianceService {
         commodities: this.isEnabled("COMMODITY_TRADING"),
         indices: this.isEnabled("INDEX_TRADING"),
         timed: this.isEnabled("TIMED_TRADING"),
+        predictions: this.isEnabled("PREDICTIONS"),
         deposits: this.isEnabled("DEPOSITS"),
         withdrawals: this.isEnabled("WITHDRAWALS"),
       },

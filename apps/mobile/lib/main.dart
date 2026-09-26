@@ -17,6 +17,9 @@ import 'package:primevest_mobile/features/portfolio/demo_transactions_screen.dar
 import 'package:primevest_mobile/features/profile/education_screen.dart';
 import 'package:primevest_mobile/features/profile/language_screen.dart';
 import 'package:primevest_mobile/features/profile/security_screen.dart';
+import 'package:primevest_mobile/features/community/community_screen.dart';
+import 'package:primevest_mobile/features/prediction/prediction_screen.dart';
+import 'package:primevest_mobile/features/prediction/prediction_markets_screen.dart';
 import 'package:primevest_mobile/features/splash/splash_screen.dart';
 import 'package:primevest_mobile/l10n/app_localizations.dart';
 import 'package:primevest_mobile/app/web_url_strategy_stub.dart'
@@ -47,6 +50,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             : session.phase == SessionPhase.authenticated
                 ? '/home'
                 : '/welcome';
+      }
+      if (!kIsWeb &&
+          session.phase == SessionPhase.guest &&
+          location == '/splash') {
+        return '/welcome';
       }
       if (session.phase == SessionPhase.authenticated &&
           (location == '/splash' ||
@@ -90,6 +98,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/cash-in', builder: (_, __) => const CashInScreen()),
       GoRoute(path: '/withdraw', builder: (_, __) => const WithdrawScreen()),
       GoRoute(path: '/security', builder: (_, __) => const SecurityScreen()),
+      GoRoute(path: '/community', builder: (_, __) => const CommunityScreen()),
+      GoRoute(
+          path: '/prediction',
+          builder: (_, __) => const PredictionMarketsScreen()),
+      GoRoute(
+          path: '/prediction/direction',
+          builder: (_, __) => const PredictionScreen()),
       GoRoute(path: '/language', builder: (_, __) => const LanguageScreen()),
       GoRoute(path: '/education', builder: (_, __) => const EducationScreen()),
       GoRoute(path: '/risk', builder: (_, __) => const RiskDisclosureScreen()),

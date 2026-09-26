@@ -185,6 +185,7 @@ export class FundingController {
 
   @Post("withdrawals")
   @UseGuards(AccessTokenGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary: "Create a KYC-gated manual withdrawal and lock funds",
   })

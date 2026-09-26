@@ -26,6 +26,9 @@ import { AccountsModule } from "./accounts/accounts.module";
 import { UsersModule } from "./users/users.module";
 import { TimedContractsModule } from "./timed-contracts/timed-contracts.module";
 import { SiteEventsController } from "./site-events/site-events.controller";
+import { VerificationModule } from "./verification/verification.module";
+import { CommunityModule } from "./community/community.module";
+import { PredictionModule } from "./prediction/prediction.module";
 
 @Module({
   imports: [
@@ -37,6 +40,9 @@ import { SiteEventsController } from "./site-events/site-events.controller";
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     DatabaseModule,
     AuthModule,
+    VerificationModule,
+    CommunityModule,
+    PredictionModule,
     AdminModule,
     SecurityModule,
     OperationsModule,

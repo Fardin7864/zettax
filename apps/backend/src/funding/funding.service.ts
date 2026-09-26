@@ -33,6 +33,7 @@ import {
   WITHDRAWAL_RATE_KEY,
 } from "./conversion-rates";
 import { fundingError } from "./funding.errors";
+import { VerificationService } from "../verification/verification.service";
 import {
   canReleaseWithdrawal,
   resolveWithdrawalTransition,
@@ -65,6 +66,7 @@ export class FundingService {
     private readonly ledger: LedgerService,
     private readonly controls: ControlService,
     private readonly outbox: OutboxService,
+    private readonly verification: VerificationService,
   ) {}
 
   listDeposits(userId: string) {
@@ -707,6 +709,13 @@ export class FundingService {
         }
         return existing;
       }
+
+      await this.verification.verifyWithdrawal(
+        tx,
+        userId,
+        input.verificationMethod,
+        input.verificationCode,
+      );
 
       const user = await tx.user.findUnique({
         where: { id: userId },

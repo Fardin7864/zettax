@@ -8,6 +8,33 @@ this host.
 
 ## Local integrated environment
 
+The withdrawal-verification, community, comment-reply, and prediction APIs
+require the committed `20260926180000_withdrawal_verification`,
+`20260926190000_community`, `20260926223000_community_replies`, and
+`20260926230000_prediction_questions` migrations. Apply them before installing
+a mobile build that uses these screens.
+Set `MFA_ENCRYPTION_KEY` to a unique 32-byte hex value in the protected backend
+environment. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
+and `SMTP_FROM` only after the mailbox and sender domain are verified. The
+password belongs in the protected environment, never in source control or the
+mobile build. Email codes remain unavailable until SMTP is configured. Image
+posts also require the existing private evidence storage and scanner. The
+The Prediction tab supports objective crypto price questions created by Zettax
+or its users, Yes/No positions, and a separate demo pool. The financial worker
+keeps one open BTC and ETH question available, each with a one-hour expiry and
+a target drawn from the archived price. The existing
+price-direction screen remains available. Winners receive their original
+stakes plus a proportional share of losing stakes, rounded to cents; when no
+one selects the winning side, all stakes are refunded. Settlement uses the
+last archived Binance one-second close before the stated UTC expiry. The
+financial worker must be running to settle expired questions. Real-money
+positions are disabled by default; `ENABLE_PREDICTIONS`,
+`ENABLE_REAL_TRADING`, `PREDICTION_REAL_APPROVAL_REFERENCE`, production mode,
+and the existing release readiness controls are all required before they can
+be accepted. Complete legal, compliance, treasury, security, and operations
+review before enabling them. These questions are Zettax-managed and do not
+create third-party prediction-market contracts.
+
 Local development uses `docker-compose.yml` and intentionally publishes the API, admin, PostgreSQL, Redis, and MinIO ports to the host. Its credentials and HTTP endpoints are development-only.
 
 ```powershell
