@@ -1,6 +1,6 @@
 # Zettax
 
-Zettax is a Bangladesh-focused, dark-first mobile trading platform being built demo-first. This repository contains a runnable NestJS API, Next.js operations console, Flutter application, PostgreSQL/Prisma data layer, Redis, MinIO, Nginx, and Docker Compose.
+Zettax is a Bangladesh-focused, dark-first trading platform being built demo-first. This repository contains a runnable NestJS API, a Next.js public website, a separate Next.js operations console, a Flutter mobile application, PostgreSQL/Prisma data layer, Redis, MinIO, Nginx, and Docker Compose.
 
 **Current local mode:** authenticated DEMO trading and the REAL-labelled account
 use server-authoritative virtual balances. Manual virtual bKash, Nagad and Rocket
@@ -26,6 +26,7 @@ Open:
 - API health: `http://localhost:3000/health`
 - Swagger: `http://localhost:3000/api/docs`
 - Admin shell: `http://localhost:3001`
+- Public website: `http://localhost:3002`
 - Supabase project: use its dashboard for database operations
 
 The populated `.env.local` is ignored by source control. This workflow runs the NestJS API and Next.js admin directly and does not require Docker, local PostgreSQL, Redis, or MinIO. Redis and object-storage readiness checks are disabled only by this local launcher. Virtual funding does not require evidence uploads; production funding continues to fail closed until compatible object storage, ClamAV, and a 32-byte encryption-key file are configured.

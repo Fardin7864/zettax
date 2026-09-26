@@ -1,0 +1,21 @@
+[Unit]
+Description=Zettax public Next.js website
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zettax
+Group=zettax
+WorkingDirectory=/srv/zettax/current/apps/web
+EnvironmentFile=/srv/zettax/shared/production.env
+ExecStart=/usr/bin/node /srv/zettax/current/apps/web/node_modules/next/dist/bin/next start -p 3002 -H 127.0.0.1
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

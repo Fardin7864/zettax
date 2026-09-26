@@ -9,10 +9,11 @@ under `/srv/zettax/releases/`.
 
 - `zettax-api.service`: NestJS API on `127.0.0.1:3000`.
 - `zettax-admin.service`: Next.js operations console on `127.0.0.1:3001`.
+- `zettax-web.service`: Next.js public site on `127.0.0.1:3002`.
 - `zettax-worker.service`: financial settlement and outbox worker.
 - Nginx serves `zettax.app`, `api.zettax.app`, `admin.zettax.app`, and
-  `status.zettax.app` over HTTPS. The apex serves the Flutter web client from
-  `/var/www/zettax-web/current`, proxies `/api/v1/` and `/socket.io/` to the same API,
+  `status.zettax.app` over HTTPS. The apex proxies to the Next.js public site,
+  proxies `/api/v1/` and `/socket.io/` to the same API,
   and retains the Android downloads and update manifest;
   the status host exposes the API process health response.
 - Certbot renews the shared certificate. Its deploy hook reloads Nginx.
@@ -27,7 +28,7 @@ screenshots cannot be decrypted without it.
 ## Health checks
 
 ```sh
-systemctl is-active zettax-api zettax-admin zettax-worker nginx certbot.timer
+systemctl is-active zettax-api zettax-admin zettax-web zettax-worker nginx certbot.timer
 curl -fsS https://api.zettax.app/health
 curl -fsS https://api.zettax.app/ready
 curl -fsS https://status.zettax.app/
@@ -35,7 +36,9 @@ certbot renew --dry-run
 ```
 
 The public API rejects unauthenticated account requests with HTTP 401.
-The admin page loads over HTTPS at `https://admin.zettax.app/`.
+The admin page loads over HTTPS at `https://admin.zettax.app/`. The public site
+and its `/markets`, `/demo`, `/privacy.html`, and `/account-deletion.html` routes
+are served by the separate Next.js process.
 
 ## Updating the app
 
@@ -44,7 +47,9 @@ server source without `node_modules`, `.next`, or local environment files, and
 install dependencies with the lockfile using Node 22 and pnpm 9. Build with
 `NEXT_PUBLIC_API_URL=https://api.zettax.app/api/v1`. Generate the Prisma client
 and check migration status against the configured Supabase database before
-switching the `/srv/zettax/current` symlink. Restart the three Zettax services,
+switching the `/srv/zettax/current` symlink. Install and enable the checked-in
+`zettax-web.service`, replace the Nginx site, run `nginx -t`, and restart the
+four Zettax services,
 then verify the public health, admin, and market endpoints. Keep the previous
 release directory for rollback.
 

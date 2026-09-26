@@ -5,7 +5,7 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "dev": "pnpm --parallel --filter @primevest/backend --filter @primevest/admin dev",
+    "dev": "pnpm --parallel --filter @primevest/backend --filter @primevest/admin --filter @primevest/web dev",
     "dev:supabase": "powershell -NoProfile -ExecutionPolicy Bypass -File infrastructure/scripts/start-supabase-dev.ps1",
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",

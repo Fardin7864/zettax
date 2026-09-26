@@ -55,7 +55,7 @@ if ($ApplyMigrations) {
   }
 }
 
-Write-Host "Starting PrimeVest without Docker: API http://localhost:3000, admin http://localhost:3001, settlement worker"
+Write-Host "Starting Zettax without Docker: API http://localhost:3000, admin http://localhost:3001, web http://localhost:3002, settlement worker"
 Write-Host "Redis and object-storage readiness checks are disabled locally; evidence upload remains fail-closed unless configured."
 & pnpm --filter '@primevest/backend' build
 if ($LASTEXITCODE -ne 0) {
