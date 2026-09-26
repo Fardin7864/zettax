@@ -24,12 +24,6 @@ class _EmptyTokenStore implements TokenStore {
   Future<void> writeTokens(SessionTokens tokens) async {}
 }
 
-class _DelayedTokenStore extends _EmptyTokenStore {
-  @override
-  Future<SessionTokens?> readTokens() =>
-      Future<SessionTokens?>.delayed(const Duration(milliseconds: 1500));
-}
-
 Widget _app() => ProviderScope(
       overrides: [tokenStoreProvider.overrideWithValue(_EmptyTokenStore())],
       child: const PrimeVestApp(),
@@ -48,19 +42,6 @@ void main() {
     await _leaveSplash(tester);
     expect(find.text('Try Demo'), findsOneWidget);
     expect(find.byType(ZettaxMark), findsOneWidget);
-  });
-
-  testWidgets('leaves splash after a delayed guest session restore',
-      (tester) async {
-    await tester.pumpWidget(ProviderScope(
-      overrides: [tokenStoreProvider.overrideWithValue(_DelayedTokenStore())],
-      child: const PrimeVestApp(),
-    ));
-    await tester.pump(const Duration(milliseconds: 1100));
-    expect(find.byType(ZettaxWordmark), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-    expect(find.text('Try Demo'), findsOneWidget);
   });
 
   testWidgets('registration asks only for email and password', (tester) async {

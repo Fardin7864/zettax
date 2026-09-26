@@ -107,15 +107,10 @@ class SessionController extends StateNotifier<SessionState> {
   late final StreamSubscription<void> _expiredSubscription;
 
   Future<void> bootstrap() async {
-    try {
-      final restored = await _repository.restore();
-      if (!mounted) return;
-      state = restored != null
-          ? SessionState.authenticated(restored.user)
-          : const SessionState.guest();
-    } catch (_) {
-      if (mounted) state = const SessionState.guest();
-    }
+    final restored = await _repository.restore();
+    state = restored != null
+        ? SessionState.authenticated(restored.user)
+        : const SessionState.guest();
   }
 
   Future<bool> login(LoginCommand command) async {

@@ -80,9 +80,7 @@ void main() {
         one.createWithdrawal(
             methodId: 'method',
             amount: '100.00',
-            receiverMobile: '01885482244',
-            verificationMethod: 'AUTHENTICATOR',
-            verificationCode: '123456'),
+            receiverMobile: '01885482244'),
         throwsA(isA<ApiFailure>()));
     expect(await one.pending(), isNotNull);
     final restarted =
@@ -108,18 +106,12 @@ void main() {
     final repository = FundingRepository(PrimeVestApiClient(
         tokenStore: MemoryTokenStore(), dio: dio, refreshDio: dio));
     final first = repository.createWithdrawal(
-        methodId: 'method',
-        amount: '100.00',
-        receiverMobile: '01885482244',
-        verificationMethod: 'AUTHENTICATOR',
-        verificationCode: '123456');
+        methodId: 'method', amount: '100.00', receiverMobile: '01885482244');
     await expectLater(
         repository.createWithdrawal(
             methodId: 'method',
             amount: '200.00',
-            receiverMobile: '01885482244',
-            verificationMethod: 'AUTHENTICATOR',
-            verificationCode: '123456'),
+            receiverMobile: '01885482244'),
         throwsA(isA<ApiFailure>()));
     pending.complete(success());
     await first;

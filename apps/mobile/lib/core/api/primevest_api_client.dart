@@ -205,7 +205,7 @@ class PrimeVestApiClient {
         DioExceptionType.sendTimeout ||
         DioExceptionType.receiveTimeout =>
           'The connection timed out. Please try again.',
-        _ => 'Zettax could not be reached. Check your connection and try again.',
+        _ => 'The server could not be reached.',
       },
       requestId: '',
       statusCode: error.response?.statusCode,

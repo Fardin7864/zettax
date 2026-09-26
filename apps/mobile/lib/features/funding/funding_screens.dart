@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:primevest_mobile/app/design_system.dart';
 import 'package:primevest_mobile/app/top_notification.dart';
@@ -139,8 +138,7 @@ class _FundingHistoryState extends ConsumerState<FundingHistoryScreen> {
                           ? PrimeVestDesignSystem.primaryGold
                               .withValues(alpha: 0.12)
                           : null,
-                      title: Text(
-                          '${row['usdAmount'] == null ? '' : '\$${row['usdAmount']} · '}৳${row['amount']} · ${row['status']}'),
+                      title: Text('${row['usdAmount'] == null ? '' : '\$${row['usdAmount']} · '}৳${row['amount']} · ${row['status']}'),
                       subtitle: Text(
                           '${row['providerTransactionId'] ?? row['receiverMobile'] ?? ''}\n${row['rejectionReason'] ?? 'Updated: ${row['updatedAt'] ?? row['createdAt']}'}'),
                       isThreeLine: true);
@@ -226,8 +224,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
         _ReceivingCard(method: selected, reveal: data.submissionsEnabled),
         const SizedBox(height: 22),
         const _Title('2. Enter transfer details'),
-        Text(
-            'Deposit rate: ৳${data.depositBdtPerUsd} = \$1.00. The approved BDT amount is converted to USD in your wallet.',
+        Text('Deposit rate: ৳${data.depositBdtPerUsd} = \$1.00. The approved BDT amount is converted to USD in your wallet.',
             style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
         const SizedBox(height: 10),
         TextField(
@@ -244,8 +241,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
           ),
         ),
         if ((double.tryParse(amount.text) ?? 0) > 0)
-          Text(
-              'Estimated USD credit after approval: \$${((double.tryParse(amount.text) ?? 0) / (double.tryParse(data.depositBdtPerUsd) ?? 125)).toStringAsFixed(2)}'),
+          Text('Estimated USD credit after approval: \$${((double.tryParse(amount.text) ?? 0) / (double.tryParse(data.depositBdtPerUsd) ?? 125)).toStringAsFixed(2)}'),
         const SizedBox(height: 12),
         TextField(
           controller: sender,
@@ -339,8 +335,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
       await repository.createDeposit(
           methodId: submittedMethod,
           amount: submittedAmount,
-          expectedConversionRate:
-              ref.read(depositMethodsProvider).valueOrNull?.depositBdtPerUsd,
+          expectedConversionRate: ref.read(depositMethodsProvider).valueOrNull?.depositBdtPerUsd,
           senderMobile: submittedSender,
           transactionId: submittedTransaction,
           evidenceObjectKey: key);
@@ -378,44 +373,13 @@ class WithdrawScreen extends ConsumerStatefulWidget {
 class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   final amount = TextEditingController();
   final receiver = TextEditingController();
-  final verificationCode = TextEditingController();
   String? selectedId;
-  String verificationMethod = 'AUTHENTICATOR';
-  JsonObject? verificationOptions;
-  bool verificationLoading = true;
   bool submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadVerification();
-  }
-
-  Future<void> _loadVerification() async {
-    try {
-      final options =
-          await ref.read(authRepositoryProvider).verificationStatus();
-      if (mounted) {
-        setState(() {
-          verificationOptions = options;
-          verificationMethod = options['authenticatorEnabled'] == true
-              ? 'AUTHENTICATOR'
-              : 'EMAIL';
-          verificationLoading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => verificationLoading = false);
-      }
-    }
-  }
 
   @override
   void dispose() {
     amount.dispose();
     receiver.dispose();
-    verificationCode.dispose();
     super.dispose();
   }
 
@@ -447,10 +411,6 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     selectedId ??= data.methods.first.id;
     final enabled = data.submissionsEnabled && !submitting;
-    final authenticatorAvailable =
-        verificationOptions?['authenticatorEnabled'] == true;
-    final emailAvailable = verificationOptions?['emailAvailable'] == true;
-    final canVerify = authenticatorAvailable || emailAvailable;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
@@ -461,7 +421,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             enabled: data.submissionsEnabled,
             enabledText: data.virtualFunding
                 ? 'Your requested amount is immediately deducted from available balance and locked until review. No real payment is sent.'
-                : 'Withdrawals are reviewed manually. Funds are locked when your request is accepted.',
+                : 'Withdrawals are reviewed manually. Funds are locked when your request is accepted by the server.',
             disabledText:
                 'Withdrawals are not accepting requests yet. Your REAL balance remains unchanged.',
           ),
@@ -474,12 +434,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           onSelected: enabled ? (id) => setState(() => selectedId = id) : null,
         ),
         const SizedBox(height: 18),
-        Text(
-            'Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
+        Text('Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
             style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
         if ((double.tryParse(amount.text) ?? 0) > 0)
-          Text(
-              'Estimated payout: ৳${((double.tryParse(amount.text) ?? 0) * (double.tryParse(data.withdrawalBdtPerUsd) ?? 118)).toStringAsFixed(2)}'),
+          Text('Estimated payout: ৳${((double.tryParse(amount.text) ?? 0) * (double.tryParse(data.withdrawalBdtPerUsd) ?? 118)).toStringAsFixed(2)}'),
         const SizedBox(height: 10),
         TextField(
           controller: amount,
@@ -502,71 +460,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        const _Title('Verify this withdrawal'),
-        const SizedBox(height: 8),
-        if (verificationLoading)
-          const LinearProgressIndicator()
-        else if (!canVerify) ...[
-          const Text(
-              'Set up an authenticator app before withdrawing. Email codes are available once mail delivery is configured.'),
-          TextButton.icon(
-              onPressed: () => context.push('/security'),
-              icon: const Icon(Icons.security_outlined),
-              label: const Text('Open security settings')),
-          TextButton(
-              onPressed: _loadVerification,
-              child: const Text('Refresh verification options')),
-        ] else ...[
-          DropdownButtonFormField<String>(
-            initialValue:
-                verificationMethod == 'AUTHENTICATOR' && !authenticatorAvailable
-                    ? 'EMAIL'
-                    : verificationMethod,
-            decoration: const InputDecoration(labelText: 'Verification method'),
-            items: [
-              if (authenticatorAvailable)
-                const DropdownMenuItem(
-                    value: 'AUTHENTICATOR', child: Text('Authenticator app')),
-              if (emailAvailable)
-                const DropdownMenuItem(
-                    value: 'EMAIL', child: Text('Email code')),
-            ],
-            onChanged: enabled
-                ? (value) => setState(() => verificationMethod = value!)
-                : null,
-          ),
-          if (verificationMethod == 'EMAIL')
-            TextButton.icon(
-              onPressed: enabled
-                  ? () async {
-                      try {
-                        await ref
-                            .read(authRepositoryProvider)
-                            .sendWithdrawalEmailCode();
-                        if (mounted) {
-                          _notice(
-                              'A six-digit code was sent to your account email. It expires in five minutes.');
-                        }
-                      } catch (error) {
-                        if (mounted) _notice(_message(error));
-                      }
-                    }
-                  : null,
-              icon: const Icon(Icons.mail_outline),
-              label: const Text('Send code to my email'),
-            ),
-          TextField(
-            controller: verificationCode,
-            enabled: enabled,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            decoration:
-                const InputDecoration(labelText: 'Six-digit verification code'),
-          ),
-        ],
-        const SizedBox(height: 18),
         FilledButton.icon(
-          onPressed: enabled && canVerify ? _submit : null,
+          onPressed: enabled ? _submit : null,
           icon: submitting
               ? const SizedBox.square(
                   dimension: 18,
@@ -601,29 +496,19 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       _notice('Enter the amount and receiving number.');
       return;
     }
-    if (!RegExp(r'^\d{6}$').hasMatch(verificationCode.text.trim())) {
-      _notice('Enter a valid six-digit verification code.');
-      return;
-    }
     setState(() => submitting = true);
     try {
       await ref.read(fundingRepositoryProvider).createWithdrawal(
             methodId: selectedId!,
             amount: amount.text.trim(),
-            expectedConversionRate: ref
-                .read(withdrawalMethodsProvider)
-                .valueOrNull
-                ?.withdrawalBdtPerUsd,
+            expectedConversionRate: ref.read(withdrawalMethodsProvider).valueOrNull?.withdrawalBdtPerUsd,
             receiverMobile: receiver.text.trim(),
-            verificationMethod: verificationMethod,
-            verificationCode: verificationCode.text.trim(),
           );
       if (mounted) {
         _notice(
             'Withdrawal submitted. The amount is locked and no longer available to trade or withdraw.');
         amount.clear();
         receiver.clear();
-        verificationCode.clear();
         ref.invalidate(accountsProvider);
         ref.read(fundingRealtimeRevisionProvider.notifier).state++;
       }

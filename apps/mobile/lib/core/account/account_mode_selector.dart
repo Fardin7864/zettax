@@ -38,7 +38,7 @@ class AccountModeSelector extends ConsumerWidget {
             subtitle: Text(config.usesVirtualFunds
                 ? 'Virtual balance'
                 : config.realTrading
-                    ? 'Availability set by Zettax'
+                    ? 'Availability set by server'
                     : 'Trading unavailable'),
           ),
         ),
