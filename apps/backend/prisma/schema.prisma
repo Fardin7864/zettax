@@ -296,7 +296,7 @@ model AccountEvent {
 model UserProfile {
   userId          String   @id @map("user_id") @db.Uuid
   fullName        String   @map("full_name")
-  dateOfBirth     DateTime @map("date_of_birth") @db.Date
+  dateOfBirth     DateTime? @map("date_of_birth") @db.Date
   gender          String?
   currentAddress  String   @map("current_address")
   district        String

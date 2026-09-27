@@ -97,10 +97,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> save() async {
     if (saving || !form.currentState!.validate()) return;
-    if (birth == null) {
-      showTopNotification('Choose your date of birth.', success: false);
-      return;
-    }
     setState(() => saving = true);
     var detailsSaved = false;
     try {
@@ -109,7 +105,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           '/users/me/profile',
           {
             'fullName': name.text.trim(),
-            'dateOfBirth': birth!.toIso8601String().split('T').first,
+            if (birth != null)
+              'dateOfBirth': birth!.toIso8601String().split('T').first,
             if (gender != null) 'gender': gender,
             'currentAddress': address.text.trim(),
             'district': district.text.trim(),
@@ -169,7 +166,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       v == null || v.trim().isEmpty ? 'Enter your name' : null),
               ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Date of birth'),
+                  title: const Text('Date of birth (optional)'),
                   subtitle: Text(birth?.toIso8601String().split('T').first ??
                       'Choose date'),
                   trailing: const Icon(Icons.calendar_month),

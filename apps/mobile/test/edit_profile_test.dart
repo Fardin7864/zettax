@@ -40,11 +40,19 @@ void main() {
       'district': '',
       'country': 'Bangladesh',
     });
-    expect(profile.dateOfBirth.year, 2000);
-    expect(profile.dateOfBirth.month, 1);
-    expect(profile.dateOfBirth.day, 1);
+    expect(profile.dateOfBirth!.year, 2000);
+    expect(profile.dateOfBirth!.month, 1);
+    expect(profile.dateOfBirth!.day, 1);
     expect(profile.currentAddress, '');
     expect(profile.district, '');
+    expect(
+      UserProfile.fromJson({
+        'fullName': 'New member',
+        'dateOfBirth': null,
+        'country': 'Bangladesh',
+      }).dateOfBirth,
+      isNull,
+    );
   });
   testWidgets(
       'profile editor saves changed details to the authenticated profile endpoint',

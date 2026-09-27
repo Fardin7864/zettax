@@ -12,6 +12,7 @@ import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/api/api_environment.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
+import 'package:primevest_mobile/features/profile/edit_profile_screen.dart';
 
 String _imageUrl(String path) =>
     '${ApiEnvironment.baseUri.toString().replaceFirst(RegExp(r'/$'), '')}$path';
@@ -34,6 +35,76 @@ Map<String, int> _reactionCounts(Map<String, dynamic> post) {
   if (raw is! Map) return {'LIKE': (post['likeCount'] as num? ?? 0).toInt()};
   return raw.map((key, value) =>
       MapEntry(key.toString(), value is num ? value.toInt() : 0));
+}
+
+class CommunityAvatar extends StatelessWidget {
+  const CommunityAvatar({
+    super.key,
+    required this.name,
+    this.avatarUrl,
+    this.radius = 20,
+  });
+
+  final String name;
+  final String? avatarUrl;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0x33F8B425),
+      child: name == 'Zettax member'
+          ? const Icon(Icons.person_outline, color: Colors.amber)
+          : Text(name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase()),
+    );
+    if (avatarUrl == null || avatarUrl!.isEmpty) return placeholder;
+    return ClipOval(
+      child: Image.network(
+        _imageUrl(avatarUrl!),
+        width: radius * 2,
+        height: radius * 2,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder,
+      ),
+    );
+  }
+}
+
+class _CommunityAction extends StatelessWidget {
+  const _CommunityAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.onLongPress,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Semantics(
+          button: true,
+          label: label,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: SizedBox(
+              height: 48,
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                icon,
+                const SizedBox(width: 5),
+                Flexible(
+                    child: Text(label,
+                        maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
+            ),
+          ),
+        ),
+      );
 }
 
 class CommunityScreen extends ConsumerStatefulWidget {
@@ -247,40 +318,33 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     }
   }
 
-  Future<void> _createPost() async {
-    if (ref.read(sessionProvider).phase != SessionPhase.authenticated) {
-      context.push('/login');
-      return;
-    }
-    final created = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const _ComposePostScreen()));
-    if (created == true && mounted) _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final authenticated =
         ref.watch(sessionProvider).phase == SessionPhase.authenticated;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final incompleteProfile = authenticated &&
+        currentUser != null &&
+        (currentUser.profile == null ||
+            currentUser.profile!.avatarObjectKey == null);
     return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-        child: Row(children: [
-          const Expanded(
-              child: Text('Latest posts',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ))),
-          SizedBox(
-            width: 150,
-            child: FilledButton.icon(
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('Create post'),
-              onPressed: _createPost,
+      if (incompleteProfile)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: Card(
+            child: ListTile(
+              dense: true,
+              title: const Text('Show your name and photo on posts'),
+              subtitle: const Text('Complete your profile to identify your posts.'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => EditProfileScreen(user: currentUser)));
+                if (mounted) _load();
+              },
             ),
           ),
-        ]),
-      ),
+        ),
       Expanded(
           child: !authenticated
               ? Center(
@@ -346,9 +410,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Row(children: [
-                                              const CircleAvatar(
-                                                  child: Icon(
-                                                      Icons.person_outline)),
+                                              CommunityAvatar(
+                                                name: post['author']
+                                                        ?.toString() ??
+                                                    'Zettax member',
+                                                avatarUrl: post[
+                                                        'authorAvatarUrl']
+                                                    ?.toString(),
+                                              ),
                                               const SizedBox(width: 10),
                                               Expanded(
                                                   child: Column(
@@ -401,7 +470,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                                                   )),
                                             ],
                                             const SizedBox(height: 12),
-                                            if (reactionTotal > 0)
+                                            if (reactionTotal > 0 ||
+                                                (post['commentCount'] as num? ??
+                                                        0) >
+                                                    0 ||
+                                                (post['shareCount'] as num? ??
+                                                        0) >
+                                                    0)
                                               Padding(
                                                 padding: const EdgeInsets.only(
                                                     bottom: 8),
@@ -422,62 +497,66 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                                                           Text(entry.value.$1),
                                                     ),
                                                   const SizedBox(width: 5),
-                                                  Text(
-                                                      '$reactionTotal reactions',
-                                                      style: const TextStyle(
-                                                        color:
-                                                            PrimeVestDesignSystem
-                                                                .textMuted,
-                                                        fontSize: 12,
-                                                      )),
+                                                  Expanded(
+                                                      child: Text(
+                                                    [
+                                                      if (reactionTotal > 0)
+                                                        '$reactionTotal reactions',
+                                                      if ((post['commentCount']
+                                                                  as num? ??
+                                                              0) >
+                                                          0)
+                                                        '${post['commentCount']} comments',
+                                                      if ((post['shareCount']
+                                                                  as num? ??
+                                                              0) >
+                                                          0)
+                                                        '${post['shareCount']} shares',
+                                                    ].join(' · '),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      color:
+                                                          PrimeVestDesignSystem
+                                                              .textMuted,
+                                                      fontSize: 12,
+                                                    ),
+                                                  )),
                                                 ]),
                                               ),
                                             const Divider(height: 1),
-                                            Wrap(
-                                                spacing: 5,
-                                                runSpacing: 4,
-                                                children: [
-                                                  GestureDetector(
-                                                    onLongPress: () =>
-                                                        _chooseReaction(post),
-                                                    child: TextButton.icon(
-                                                      onPressed: () =>
-                                                          _react(post, 'LIKE'),
-                                                      icon: Text(reaction.$1),
-                                                      label: Text(reaction.$2),
-                                                    ),
-                                                  ),
-                                                  IconButton(
-                                                    tooltip:
-                                                        'Choose a reaction',
-                                                    onPressed: () =>
-                                                        _chooseReaction(post),
-                                                    icon: const Icon(
-                                                        Icons.arrow_drop_down),
-                                                  ),
-                                                  TextButton.icon(
-                                                      onPressed: () => Navigator.of(
-                                                              context)
-                                                          .push(MaterialPageRoute(
-                                                              builder: (_) =>
-                                                                  _CommentsScreen(
-                                                                      postId: post['id']
-                                                                          .toString()))),
-                                                      icon: const Icon(
-                                                          Icons
-                                                              .chat_bubble_outline,
-                                                          size: 17),
-                                                      label: Text(
-                                                          'Comment · ${post['commentCount'] ?? 0}')),
-                                                  TextButton.icon(
-                                                      onPressed: () =>
-                                                          _share(post),
-                                                      icon: const Icon(
-                                                          Icons.ios_share,
-                                                          size: 17),
-                                                      label: Text(
-                                                          'Share · ${post['shareCount'] ?? 0}')),
-                                                ]),
+                                            Row(children: [
+                                              _CommunityAction(
+                                                icon: Text(reaction.$1),
+                                                label: reaction.$2,
+                                                onTap: () =>
+                                                    _react(post, 'LIKE'),
+                                                onLongPress: () =>
+                                                    _chooseReaction(post),
+                                              ),
+                                              _CommunityAction(
+                                                icon: const Icon(
+                                                    Icons.chat_bubble_outline,
+                                                    size: 17),
+                                                label: 'Comment',
+                                                onTap: () => Navigator.of(
+                                                        context)
+                                                    .push(MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            _CommentsScreen(
+                                                                postId: post[
+                                                                        'id']
+                                                                    .toString()))),
+                                              ),
+                                              _CommunityAction(
+                                                icon: const Icon(
+                                                    Icons.ios_share,
+                                                    size: 17),
+                                                label: 'Share',
+                                                onTap: () => _share(post),
+                                              ),
+                                            ]),
                                           ])),
                                 );
                               },
@@ -497,13 +576,13 @@ String _time(dynamic value) {
   return '${date.toLocal().day}/${date.toLocal().month}/${date.toLocal().year}';
 }
 
-class _ComposePostScreen extends ConsumerStatefulWidget {
-  const _ComposePostScreen();
+class ComposePostScreen extends ConsumerStatefulWidget {
+  const ComposePostScreen({super.key});
   @override
-  ConsumerState<_ComposePostScreen> createState() => _ComposePostScreenState();
+  ConsumerState<ComposePostScreen> createState() => _ComposePostScreenState();
 }
 
-class _ComposePostScreenState extends ConsumerState<_ComposePostScreen> {
+class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   final text = TextEditingController();
   Uint8List? image;
   String? imageType;
@@ -803,6 +882,16 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Row(children: [
+                                                CommunityAvatar(
+                                                  name: comment['author']
+                                                          ?.toString() ??
+                                                      'Zettax member',
+                                                  avatarUrl: comment[
+                                                          'authorAvatarUrl']
+                                                      ?.toString(),
+                                                  radius: 16,
+                                                ),
+                                                const SizedBox(width: 8),
                                                 Expanded(
                                                     child: Text(
                                                         comment['author']

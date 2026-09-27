@@ -36,10 +36,26 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late int index = widget.initialTab.clamp(0, 5);
   late int lastNonTradeIndex = index == 2 ? 0 : index;
+  int communityRevision = 0;
 
   void _selectTab(int value) {
     if (value != 2) lastNonTradeIndex = value;
-    setState(() => index = value);
+    setState(() {
+      if (value == 5 && index != 5) communityRevision++;
+      index = value;
+    });
+  }
+
+  Future<void> _openCreatePost() async {
+    if (ref.read(sessionProvider).phase != SessionPhase.authenticated) {
+      context.push('/login');
+      return;
+    }
+    final created = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const ComposePostScreen()));
+    if (created == true && mounted) {
+      setState(() => communityRevision++);
+    }
   }
 
   @override
@@ -64,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: TradePage(onBack: () => _selectTab(lastNonTradeIndex))),
       const PortfolioPage(),
       const ProfilePage(),
-      const CommunityScreen(),
+      CommunityScreen(key: ValueKey('community-$communityRevision')),
     ];
     return LayoutBuilder(builder: (context, constraints) {
       final wide = kIsWeb && constraints.maxWidth >= 1200;
@@ -98,6 +114,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 title: Text(titles[index]),
+                actions: index == 5
+                    ? [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: SizedBox(
+                            width: constraints.maxWidth >= 390 ? 136 : 94,
+                            height: 44,
+                            child: FilledButton.icon(
+                              onPressed: _openCreatePost,
+                              icon: const Icon(Icons.edit_outlined, size: 17),
+                              label: Text(constraints.maxWidth >= 390
+                                  ? 'Create post'
+                                  : 'Post'),
+                              style: FilledButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]
+                    : null,
               ),
         drawer: wide
             ? null
@@ -138,6 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _WebNavigationBar(
                   selectedIndex: index,
                   onSelected: _selectTab,
+                  onCreatePost: _openCreatePost,
                   labels: [
                     l10n.home,
                     l10n.markets,
@@ -159,11 +198,13 @@ class _WebNavigationBar extends ConsumerWidget {
   const _WebNavigationBar({
     required this.selectedIndex,
     required this.onSelected,
+    required this.onCreatePost,
     required this.labels,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onCreatePost;
   final List<String> labels;
 
   @override
@@ -212,7 +253,19 @@ class _WebNavigationBar extends ConsumerWidget {
             ),
           ),
         const Spacer(),
-        if (session.phase == SessionPhase.authenticated)
+        if (selectedIndex == 5)
+          SizedBox(
+            width: 136,
+            height: 44,
+            child: FilledButton.icon(
+              onPressed: onCreatePost,
+              icon: const Icon(Icons.edit_outlined, size: 17),
+              label: const Text('Create post'),
+              style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6)),
+            ),
+          )
+        else if (session.phase == SessionPhase.authenticated)
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 180),
             child: Text(session.user?.email ?? 'Account',

@@ -119,6 +119,20 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
+  testWidgets('community post action fits a narrow phone app bar',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_home(5, const ValueKey('narrow-community')));
+    await tester.pump();
+
+    expect(find.text('Post'), findsOneWidget);
+    expect(find.text('Latest posts'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 300));
+  });
+
   testWidgets('registration asks only for email and password', (tester) async {
     await tester.pumpWidget(_app());
     await _leaveSplash(tester);

@@ -46,6 +46,27 @@ describe("profile editing", () => {
     ).rejects.toThrow();
     expect(upsert).not.toHaveBeenCalled();
   });
+  it("allows a member to set a name before sharing a birth date", async () => {
+    const upsert = vi.fn().mockResolvedValue({});
+    const service = new UsersService(
+      {
+        userProfile: { upsert },
+        user: { findUnique: vi.fn().mockResolvedValue({ id: "user-1" }) },
+      } as unknown as PrismaService,
+      {} as EvidenceService,
+    );
+    await service.updateProfile("user-1", {
+      fullName: "Jane Trader",
+      currentAddress: "",
+      district: "",
+      country: "Bangladesh",
+    });
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.not.objectContaining({ dateOfBirth: expect.anything() }),
+      }),
+    );
+  });
   it("reads only the authenticated owner's PROFILE picture", async () => {
     const findFirst = vi.fn().mockResolvedValue({ id: "avatar-1" });
     const read = vi.fn().mockResolvedValue(Buffer.from("picture"));

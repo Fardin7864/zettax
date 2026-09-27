@@ -136,4 +136,15 @@ export class CommunityController {
     response.setHeader("Cache-Control", "public, max-age=86400, immutable");
     response.send(bytes);
   }
+
+  @Get("users/:id/avatar")
+  async avatar(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Res() response: Response,
+  ) {
+    const bytes = await this.community.avatar(id);
+    response.setHeader("Content-Type", "image/png");
+    response.setHeader("Cache-Control", "public, max-age=300");
+    response.send(bytes);
+  }
 }

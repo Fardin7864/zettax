@@ -9,7 +9,7 @@ import {
 
 export class UpdateProfileDto {
   @IsString() @MinLength(1) @MaxLength(100) fullName!: string;
-  @IsDateString() dateOfBirth!: string;
+  @IsOptional() @IsDateString() dateOfBirth?: string;
   @IsOptional()
   @IsIn(["Male", "Female", "Other", "Prefer not to say"])
   gender?: string;

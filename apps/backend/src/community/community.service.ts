@@ -1,11 +1,28 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { ApiErrorException } from "../http/api-error";
 import { EvidenceService } from "../funding/evidence.service";
 import { CommunityGateway } from "./community.gateway";
 
-const authorSelect = { profile: { select: { fullName: true } } } as const;
+const authorSelect = {
+  id: true,
+  profile: { select: { fullName: true, avatarObjectKey: true } },
+} as const;
+type CommunityAuthor = {
+  id: string;
+  profile: { fullName: string; avatarObjectKey: string | null } | null;
+};
+
+function authorAvatarUrl(author: CommunityAuthor) {
+  if (!author.profile?.avatarObjectKey) return null;
+  const version = createHash("sha256")
+    .update(author.profile.avatarObjectKey)
+    .digest("hex")
+    .slice(0, 12);
+  return `/community/users/${author.id}/avatar?v=${version}`;
+}
 const reactionValues = [
   "LIKE",
   "LOVE",
@@ -63,7 +80,7 @@ export class CommunityService {
       commentCount: number;
       shareCount: number;
       createdAt: Date;
-      author: { profile: { fullName: string } | null };
+      author: CommunityAuthor;
       reactions?: { value: string }[];
     },
     reactionCounts: ReactionCounts = emptyReactionCounts(),
@@ -75,6 +92,8 @@ export class CommunityService {
         ? `/community/posts/${post.id}/image`
         : null,
       author: post.author.profile?.fullName || "Zettax member",
+      authorId: post.author.id,
+      authorAvatarUrl: authorAvatarUrl(post.author),
       likeCount: post.likeCount,
       dislikeCount: post.dislikeCount,
       reactionCounts,
@@ -254,6 +273,8 @@ export class CommunityService {
       parentId: row.parentId,
       text: row.text,
       author: row.user.profile?.fullName || "Zettax member",
+      authorId: row.user.id,
+      authorAvatarUrl: authorAvatarUrl(row.user),
       replyToAuthor: row.parent?.user.profile?.fullName || null,
       replyCount: row.replyCount,
       createdAt: row.createdAt,
@@ -319,6 +340,8 @@ export class CommunityService {
       parentId: result.comment.parentId,
       text,
       author: result.comment.user.profile?.fullName || "Zettax member",
+      authorId: result.comment.user.id,
+      authorAvatarUrl: authorAvatarUrl(result.comment.user),
       replyToAuthor: result.parent?.user.profile?.fullName || null,
       parentReplyCount: result.updatedParent?.replyCount ?? null,
       replyCount: 0,
@@ -358,5 +381,47 @@ export class CommunityService {
         HttpStatus.NOT_FOUND,
       );
     return this.evidence.read(row.imageEvidenceId);
+  }
+
+  async avatar(userId: string) {
+    const hasPost = await this.prisma.communityPost.findFirst({
+      where: { authorId: userId },
+      select: { id: true },
+    });
+    const hasComment = hasPost
+      ? null
+      : await this.prisma.communityComment.findFirst({
+          where: { userId },
+          select: { id: true },
+        });
+    if (!hasPost && !hasComment)
+      throw new ApiErrorException(
+        "AVATAR_NOT_FOUND",
+        "Profile picture not found.",
+        HttpStatus.NOT_FOUND,
+      );
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: { avatarObjectKey: true },
+    });
+    const file = profile?.avatarObjectKey
+      ? await this.prisma.evidenceFile.findFirst({
+          where: {
+            objectKey: profile.avatarObjectKey,
+            ownerId: userId,
+            ownerType: "USER",
+            purpose: "PROFILE",
+            status: "CLEAN",
+          },
+          select: { id: true },
+        })
+      : null;
+    if (!file)
+      throw new ApiErrorException(
+        "AVATAR_NOT_FOUND",
+        "Profile picture not found.",
+        HttpStatus.NOT_FOUND,
+      );
+    return this.evidence.read(file.id);
   }
 }

@@ -72,8 +72,9 @@ class UserProfile {
   factory UserProfile.fromJson(JsonObject json) => UserProfile(
         fullName: requireString(json, 'fullName'),
         // Birth dates are calendar dates, not instants; never shift time zones.
-        dateOfBirth:
-            DateTime.parse(requireString(json, 'dateOfBirth').split('T').first),
+        dateOfBirth: json['dateOfBirth'] is String
+            ? DateTime.parse((json['dateOfBirth'] as String).split('T').first)
+            : null,
         gender: json['gender'] as String?,
         avatarObjectKey: json['avatarObjectKey'] as String?,
         currentAddress: json['currentAddress'] as String? ?? '',
@@ -82,7 +83,7 @@ class UserProfile {
       );
 
   final String fullName;
-  final DateTime dateOfBirth;
+  final DateTime? dateOfBirth;
   final String? gender;
   final String? avatarObjectKey;
   final String currentAddress;

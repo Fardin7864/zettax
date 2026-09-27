@@ -12,22 +12,25 @@ export class UsersService {
   ) {}
 
   async updateProfile(userId: string, body: UpdateProfileDto) {
-    const dateOfBirth = new Date(body.dateOfBirth);
+    const dateOfBirth = body.dateOfBirth
+      ? new Date(body.dateOfBirth)
+      : undefined;
     if (
       !body.fullName.trim() ||
       !body.country.trim() ||
-      dateOfBirth > new Date() ||
-      dateOfBirth < new Date("1900-01-01")
+      (dateOfBirth != null &&
+        (dateOfBirth > new Date() ||
+          dateOfBirth < new Date("1900-01-01")))
     ) {
       throw new ApiErrorException(
         "PROFILE_INVALID",
-        "Enter a name, country and valid date of birth.",
+        "Enter a name, country and valid date of birth if provided.",
         400,
       );
     }
     const data = {
       fullName: body.fullName.trim(),
-      dateOfBirth,
+      ...(dateOfBirth ? { dateOfBirth } : {}),
       gender: body.gender ?? null,
       currentAddress: body.currentAddress.trim(),
       district: body.district.trim(),
