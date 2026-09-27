@@ -4,11 +4,13 @@ import { AccessTokenGuard } from "./access-token.guard";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { PasswordHasherService } from "./password-hasher.service";
+import { EvidenceModule } from "../funding/evidence.module";
+import { GoogleProfileImporter } from "./google-profile-importer.service";
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), EvidenceModule],
   controllers: [AuthController],
-  providers: [AuthService, PasswordHasherService, AccessTokenGuard],
+  providers: [AuthService, GoogleProfileImporter, PasswordHasherService, AccessTokenGuard],
   exports: [AuthService, AccessTokenGuard],
 })
 export class AuthModule {}

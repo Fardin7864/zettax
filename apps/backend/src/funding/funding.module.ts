@@ -4,14 +4,14 @@ import { ComplianceModule } from "../compliance/compliance.module";
 import { AuthModule } from "../auth/auth.module";
 import { FundingController } from "./funding.controller";
 import { FundingService } from "./funding.service";
-import { EvidenceService } from "./evidence.service";
+import { EvidenceModule } from "./evidence.module";
 import { ControlModule } from "../operations/control.service";
 import { VerificationModule } from "../verification/verification.module";
 
 @Module({
-  imports: [AuthModule, ComplianceModule, AdminModule, ControlModule, VerificationModule],
+  imports: [AuthModule, EvidenceModule, ComplianceModule, AdminModule, ControlModule, VerificationModule],
   controllers: [FundingController],
-  providers: [FundingService, EvidenceService],
-  exports: [FundingService, EvidenceService],
+  providers: [FundingService],
+  exports: [FundingService, EvidenceModule],
 })
 export class FundingModule {}

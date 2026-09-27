@@ -1,11 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+class GoogleIdentity {
+  const GoogleIdentity({
+    required this.idToken,
+    this.displayName,
+    this.photoUrl,
+  });
+
+  final String idToken;
+  final String? displayName;
+  final String? photoUrl;
+}
+
 class NativeGoogleSignIn {
   final GoogleSignIn _signIn = GoogleSignIn.instance;
   bool _initialized = false;
 
-  Future<String?> getIdToken() async {
+  Future<GoogleIdentity?> getIdentity() async {
     if (kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.android &&
             defaultTargetPlatform != TargetPlatform.iOS)) {
@@ -40,7 +52,11 @@ class NativeGoogleSignIn {
           'Google did not return a secure identity token.',
         );
       }
-      return idToken;
+      return GoogleIdentity(
+        idToken: idToken,
+        displayName: account.displayName,
+        photoUrl: account.photoUrl,
+      );
     } on GoogleSignInException catch (error) {
       if (error.code == GoogleSignInExceptionCode.canceled) {
         throw const NativeGoogleSignInFailure(

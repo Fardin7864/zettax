@@ -3,6 +3,7 @@ import { JwtService } from "@nestjs/jwt";
 import { validate } from "class-validator";
 import { describe, expect, it, vi } from "vitest";
 import { AuthService } from "../src/auth/auth.service";
+import { GoogleProfileImporter } from "../src/auth/google-profile-importer.service";
 import { RegisterDto } from "../src/auth/dto/register.dto";
 import { ChangePasswordDto } from "../src/auth/dto/change-password.dto";
 import { PasswordHasherService } from "../src/auth/password-hasher.service";
@@ -79,6 +80,7 @@ describe("authentication security", () => {
       config(),
       hasher,
       {} as LedgerService,
+      {} as GoogleProfileImporter,
     );
     const principal = { userId: user.id, sessionId: "current-session" };
     await expect(service.changePassword(principal, change)).resolves.toEqual({
@@ -155,6 +157,7 @@ describe("authentication security", () => {
       config(),
       hasher,
       new LedgerService(),
+      {} as GoogleProfileImporter,
     );
 
     const result = await service.refresh(refreshToken, {
@@ -201,6 +204,7 @@ describe("authentication security", () => {
       config(),
       hasher,
       new LedgerService(),
+      {} as GoogleProfileImporter,
     );
 
     await expect(service.refresh(replayedToken, {})).rejects.toMatchObject({

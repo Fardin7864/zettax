@@ -45,11 +45,17 @@ class AuthRepository {
     return result.data;
   }
 
-  Future<AuthResult> google(String idToken) async {
+  Future<AuthResult> google(String idToken,
+      {String? displayName, String? photoUrl}) async {
     final device = await _tokenStore.deviceMetadata();
     final result = await _client.post(
       '/auth/google',
-      {'idToken': idToken, ...device.toJson()},
+      {
+        'idToken': idToken,
+        if (displayName != null) 'displayName': displayName,
+        if (photoUrl != null) 'photoUrl': photoUrl,
+        ...device.toJson(),
+      },
       (value) => AuthResult.fromJson(_object(value)),
       authenticated: false,
     );

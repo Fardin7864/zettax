@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
@@ -17,12 +17,14 @@ import type { RegisterDto } from "./dto/register.dto";
 import type { GoogleAuthDto } from "./dto/google-auth.dto";
 import type { ChangePasswordDto } from "./dto/change-password.dto";
 import { PasswordHasherService } from "./password-hasher.service";
+import { GoogleProfileImporter } from "./google-profile-importer.service";
 
 const issuer = "primevest-api";
 const audience = "primevest-mobile";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly dummyHash: Promise<string>;
   private readonly googleClient = new OAuth2Client();
 
@@ -32,6 +34,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly hasher: PasswordHasherService,
     private readonly ledger: LedgerService,
+    private readonly googleProfile: GoogleProfileImporter,
   ) {
     this.dummyHash = this.hasher.hash(randomUUID());
   }
@@ -156,6 +159,15 @@ export class AuthService {
         "This account cannot currently sign in.",
         HttpStatus.FORBIDDEN,
       );
+    }
+    try {
+      await this.googleProfile.importMissing(user.id, {
+        name: payload.name?.trim() || body.displayName,
+        picture: payload.picture?.trim() || body.photoUrl,
+      });
+    } catch {
+      // Google authentication remains usable if optional profile setup fails.
+      this.logger.warn("Google profile could not be imported");
     }
     return this.establishSession(user, body, metadata);
   }

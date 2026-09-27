@@ -43,6 +43,33 @@ void main() {
     expect((await store.readTokens())?.refreshToken, 'refresh-2');
   });
 
+  test('Google sign-in sends the native account name and photo as fallbacks',
+      () async {
+    final store = MemoryTokenStore();
+    late RequestOptions request;
+    final dio = testDio(CallbackAdapter((options) async {
+      request = options;
+      return jsonResponse(_authEnvelope());
+    }));
+    final repository = AuthRepository(
+      client: PrimeVestApiClient(
+        tokenStore: store,
+        dio: dio,
+        refreshDio: dio,
+      ),
+      tokenStore: store,
+    );
+
+    await repository.google('verified-id-token',
+        displayName: 'Jane Trader',
+        photoUrl: 'https://lh3.googleusercontent.com/a/photo');
+
+    expect(request.path, '/auth/google');
+    expect(request.data, containsPair('displayName', 'Jane Trader'));
+    expect(request.data,
+        containsPair('photoUrl', 'https://lh3.googleusercontent.com/a/photo'));
+  });
+
   test('parallel refresh callers share one rotating-token request', () async {
     final store = MemoryTokenStore(
       tokens: const SessionTokens(
