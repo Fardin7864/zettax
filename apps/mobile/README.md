@@ -48,6 +48,14 @@ file. See [Play release checklist](../../docs/PLAY_RELEASE.md).
 
 ## Market-data backend
 
+For a USB-connected phone, run `node infrastructure/scripts/run-mobile-usb-dev.mjs`
+from the repository root. This uses the production HTTPS API and automatically
+hot reloads saved Dart or asset changes. Android or dependency changes rebuild
+the debug app. Keep the command running while developing; the debug certificate
+is stable on this machine but is not Google's Play App Signing certificate.
+Google sign-in needs separate Android OAuth clients for the same package ID and
+each installation certificate; the Play signing key cannot be used for hot reload.
+
 Android emulators use `http://10.0.2.2:3000/api/v1` by default. For a physical
 Android device connected over USB, reverse the backend port and build with the
 loopback URL:
