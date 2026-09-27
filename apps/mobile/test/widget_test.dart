@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,8 +26,17 @@ class _EmptyTokenStore implements TokenStore {
   Future<void> writeTokens(SessionTokens tokens) async {}
 }
 
-Widget _app() => ProviderScope(
-      overrides: [tokenStoreProvider.overrideWithValue(_EmptyTokenStore())],
+class _DelayedTokenStore extends _EmptyTokenStore {
+  final Completer<SessionTokens?> restored = Completer<SessionTokens?>();
+
+  @override
+  Future<SessionTokens?> readTokens() => restored.future;
+}
+
+Widget _app({TokenStore? tokenStore}) => ProviderScope(
+      overrides: [
+        tokenStoreProvider.overrideWithValue(tokenStore ?? _EmptyTokenStore())
+      ],
       child: const PrimeVestApp(),
     );
 
@@ -42,6 +53,19 @@ void main() {
     await _leaveSplash(tester);
     expect(find.text('Try Demo'), findsOneWidget);
     expect(find.byType(ZettaxMark), findsOneWidget);
+  });
+
+  testWidgets('leaves splash when session restoration finishes late',
+      (tester) async {
+    final tokenStore = _DelayedTokenStore();
+    await tester.pumpWidget(_app(tokenStore: tokenStore));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byType(ZettaxWordmark), findsOneWidget);
+
+    tokenStore.restored.complete(null);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Try Demo'), findsOneWidget);
   });
 
   testWidgets('registration asks only for email and password', (tester) async {

@@ -74,6 +74,9 @@ function start() {
 
 function changed(kind) {
   if (closing) return;
+  // Gradle updates generated Android files while compiling. The initial build
+  // already includes source changes made before Flutter is ready.
+  if (kind === 'restart' && !ready) return;
   if (kind === 'restart') pendingKind = 'restart';
   clearTimeout(changeTimer);
   changeTimer = setTimeout(() => {

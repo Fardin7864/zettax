@@ -41,6 +41,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (kIsWeb && location != '/splash') return null;
         return location == '/splash' ? null : '/splash';
       }
+      if (location == '/splash' && session.phase == SessionPhase.guest) {
+        return '/welcome';
+      }
       if (location == '/') {
         return kIsWeb
             ? null
