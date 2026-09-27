@@ -247,6 +247,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     }
   }
 
+  Future<void> _createPost() async {
+    if (ref.read(sessionProvider).phase != SessionPhase.authenticated) {
+      context.push('/login');
+      return;
+    }
+    final created = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const _ComposePostScreen()));
+    if (created == true && mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authenticated =
@@ -261,17 +271,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                   ))),
-          if (authenticated)
-            FilledButton.icon(
-              icon: const Icon(Icons.edit_outlined),
+          SizedBox(
+            width: 150,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.edit_outlined, size: 18),
               label: const Text('Create post'),
-              onPressed: () async {
-                final created = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                        builder: (_) => const _ComposePostScreen()));
-                if (created == true) _load();
-              },
+              onPressed: _createPost,
             ),
+          ),
         ]),
       ),
       Expanded(

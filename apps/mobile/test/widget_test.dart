@@ -113,6 +113,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to join the community'), findsOneWidget);
+    expect(find.text('Create post'), findsOneWidget);
+    await tester.tap(find.text('Create post'));
+    await tester.pumpAndSettle();
+    expect(find.text('Welcome back'), findsOneWidget);
   });
 
   testWidgets('registration asks only for email and password', (tester) async {
