@@ -6,6 +6,24 @@ import { EvidenceService } from "../funding/evidence.service";
 import { CommunityGateway } from "./community.gateway";
 
 const authorSelect = { profile: { select: { fullName: true } } } as const;
+const reactionValues = [
+  "LIKE",
+  "LOVE",
+  "CARE",
+  "HAHA",
+  "WOW",
+  "SAD",
+  "ANGRY",
+  "DISLIKE",
+] as const;
+type ReactionValue = (typeof reactionValues)[number];
+type ReactionCounts = Record<ReactionValue, number>;
+
+function emptyReactionCounts(): ReactionCounts {
+  return Object.fromEntries(
+    reactionValues.map((value) => [value, 0]),
+  ) as ReactionCounts;
+}
 
 @Injectable()
 export class CommunityService {
@@ -35,18 +53,21 @@ export class CommunityService {
     throw new Error("Community transaction unavailable");
   }
 
-  private display(post: {
-    id: string;
-    text: string;
-    imageEvidenceId: string | null;
-    likeCount: number;
-    dislikeCount: number;
-    commentCount: number;
-    shareCount: number;
-    createdAt: Date;
-    author: { profile: { fullName: string } | null };
-    reactions?: { value: string }[];
-  }) {
+  private display(
+    post: {
+      id: string;
+      text: string;
+      imageEvidenceId: string | null;
+      likeCount: number;
+      dislikeCount: number;
+      commentCount: number;
+      shareCount: number;
+      createdAt: Date;
+      author: { profile: { fullName: string } | null };
+      reactions?: { value: string }[];
+    },
+    reactionCounts: ReactionCounts = emptyReactionCounts(),
+  ) {
     return {
       id: post.id,
       text: post.text,
@@ -56,6 +77,7 @@ export class CommunityService {
       author: post.author.profile?.fullName || "Zettax member",
       likeCount: post.likeCount,
       dislikeCount: post.dislikeCount,
+      reactionCounts,
       commentCount: post.commentCount,
       shareCount: post.shareCount,
       myReaction: post.reactions?.[0]?.value ?? null,
@@ -75,8 +97,22 @@ export class CommunityService {
     });
     const hasMore = rows.length > 20;
     const items = rows.slice(0, 20);
+    const countsByPost = new Map<string, ReactionCounts>();
+    if (items.length) {
+      const grouped = await this.prisma.communityReaction.groupBy({
+        by: ["postId", "value"],
+        where: { postId: { in: items.map((item) => item.id) } },
+        _count: { _all: true },
+      });
+      for (const row of grouped) {
+        if (!reactionValues.includes(row.value as ReactionValue)) continue;
+        const counts = countsByPost.get(row.postId) ?? emptyReactionCounts();
+        counts[row.value as ReactionValue] = row._count._all;
+        countsByPost.set(row.postId, counts);
+      }
+    }
     return {
-      items: items.map((row) => this.display(row)),
+      items: items.map((row) => this.display(row, countsByPost.get(row.id))),
       nextCursor: hasMore ? items.at(-1)?.id : null,
     };
   }
@@ -138,11 +174,7 @@ export class CommunityService {
     return this.display(row);
   }
 
-  async react(
-    userId: string,
-    postId: string,
-    value: "LIKE" | "DISLIKE" | "NONE",
-  ) {
+  async react(userId: string, postId: string, value: ReactionValue | "NONE") {
     const row = await this.serializable(async (tx) => {
       const post = await tx.communityPost.findUnique({ where: { id: postId } });
       if (!post)
@@ -180,13 +212,30 @@ export class CommunityService {
         },
       });
     });
-    this.gateway.changed(row);
+    const reactionCounts = await this.countReactions(postId);
+    this.gateway.changed({ ...row, reactionCounts });
     return {
       id: row.id,
       likeCount: row.likeCount,
       dislikeCount: row.dislikeCount,
+      reactionCounts,
       myReaction: value === "NONE" ? null : value,
     };
+  }
+
+  private async countReactions(postId: string): Promise<ReactionCounts> {
+    const grouped = await this.prisma.communityReaction.groupBy({
+      by: ["value"],
+      where: { postId },
+      _count: { _all: true },
+    });
+    const counts = emptyReactionCounts();
+    for (const row of grouped) {
+      if (reactionValues.includes(row.value as ReactionValue)) {
+        counts[row.value as ReactionValue] = row._count._all;
+      }
+    }
+    return counts;
   }
 
   async comments(postId: string, cursor?: string) {

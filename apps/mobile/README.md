@@ -15,6 +15,8 @@ not client-supplied execution prices.
   receipt age, and simulated-fallback labels
 - Interactive chart periods from 1 minute to 5 years with live updates
 - Guest demo and signed-in account trade flows, moving P/L, settlement and history
+- Top hamburger navigation and an authenticated realtime community feed with
+  text/image posts, reactions, threaded replies, and native sharing
 - Deposit and withdrawal requests for authenticated accounts, subject to review
 - Explicit virtual-balance and market-data disclosures
 

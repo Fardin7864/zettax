@@ -11,6 +11,10 @@ under `/srv/zettax/releases/`.
 - `zettax-admin.service`: Next.js operations console on `127.0.0.1:3001`.
 - `zettax-web.service`: Next.js public site on `127.0.0.1:3002`.
 - `zettax-worker.service`: financial settlement and outbox worker.
+- `clamav-daemon.service` and `clamav-freshclam.service`: scan public community
+  image uploads over `127.0.0.1:3310`; set `CLAMAV_HOST=127.0.0.1` and
+  `CLAMAV_PORT=3310` in the production environment. Deposit screenshots keep
+  their separate no-scan path.
 - Nginx serves `zettax.app`, `api.zettax.app`, `admin.zettax.app`, and
   `status.zettax.app` over HTTPS. The apex proxies to the Next.js public site,
   proxies `/api/v1/` and `/socket.io/` to the same API,

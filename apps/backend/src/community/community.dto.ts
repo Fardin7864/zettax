@@ -11,6 +11,25 @@ export class CreateCommentDto {
 }
 
 export class ReactDto {
-  @IsIn(["LIKE", "DISLIKE", "NONE"])
-  value!: "LIKE" | "DISLIKE" | "NONE";
+  @IsIn([
+    "LIKE",
+    "LOVE",
+    "CARE",
+    "HAHA",
+    "WOW",
+    "SAD",
+    "ANGRY",
+    "DISLIKE",
+    "NONE",
+  ])
+  value!:
+    | "LIKE"
+    | "LOVE"
+    | "CARE"
+    | "HAHA"
+    | "WOW"
+    | "SAD"
+    | "ANGRY"
+    | "DISLIKE"
+    | "NONE";
 }

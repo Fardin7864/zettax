@@ -10,6 +10,9 @@ import 'package:primevest_mobile/core/auth/token_store.dart';
 import 'package:primevest_mobile/features/home/home_screen.dart';
 import 'package:primevest_mobile/l10n/app_localizations.dart';
 import 'package:primevest_mobile/main.dart';
+import 'package:primevest_mobile/market/market_data_providers.dart';
+import 'package:primevest_mobile/market/market_realtime_client.dart'
+    as realtime;
 
 class _EmptyTokenStore implements TokenStore {
   @override
@@ -33,11 +36,39 @@ class _DelayedTokenStore extends _EmptyTokenStore {
   Future<SessionTokens?> readTokens() => restored.future;
 }
 
+class _NoopMarketRealtimeClient extends realtime.MarketRealtimeClient {
+  _NoopMarketRealtimeClient() : super(tokenStore: _EmptyTokenStore());
+
+  @override
+  Future<realtime.MarketRealtimeSubscription?> subscribe({
+    required String instrumentId,
+    required String interval,
+    required void Function(realtime.MarketRealtimeUpdate update) onCandle,
+    required void Function() onSequenceGap,
+    required void Function(bool connected) onConnectionChanged,
+  }) async =>
+      null;
+}
+
 Widget _app({TokenStore? tokenStore}) => ProviderScope(
       overrides: [
-        tokenStoreProvider.overrideWithValue(tokenStore ?? _EmptyTokenStore())
+        tokenStoreProvider.overrideWithValue(tokenStore ?? _EmptyTokenStore()),
+        marketRealtimeClientProvider
+            .overrideWithValue(_NoopMarketRealtimeClient()),
       ],
       child: const PrimeVestApp(),
+    );
+
+Widget _home(int tab, Key key) => ProviderScope(
+      overrides: [
+        marketRealtimeClientProvider
+            .overrideWithValue(_NoopMarketRealtimeClient()),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: HomeScreen(key: key, initialTab: tab),
+      ),
     );
 
 Future<void> _leaveSplash(WidgetTester tester) async {
@@ -68,6 +99,22 @@ void main() {
     expect(find.text('Try Demo'), findsOneWidget);
   });
 
+  testWidgets('hamburger menu opens the community screen for guests',
+      (tester) async {
+    await tester.pumpWidget(_app());
+    await _leaveSplash(tester);
+    await tester.tap(find.text('Try Demo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationBar), findsNothing);
+    await tester.tap(find.byTooltip('Open menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Community').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to join the community'), findsOneWidget);
+  });
+
   testWidgets('registration asks only for email and password', (tester) async {
     await tester.pumpWidget(_app());
     await _leaveSplash(tester);
@@ -96,29 +143,16 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1080, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const key = ValueKey('home-route');
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: HomeScreen(key: key, initialTab: 0),
-        ),
-      ),
-    );
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
-    );
+    await tester.pumpWidget(_home(0, key));
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byTooltip('Open menu'), findsOneWidget);
+    await tester.tap(find.byTooltip('Open menu'));
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Community'), findsWidgets);
+    await tester.tapAt(const Offset(800, 100));
+    await tester.pump(const Duration(milliseconds: 350));
 
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: HomeScreen(key: key, initialTab: 2),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_home(2, key));
     await tester.pump();
 
     expect(find.byType(NavigationBar), findsNothing);
@@ -126,36 +160,14 @@ void main() {
     // Invoke the back action provided by HomeScreen to test the tab return.
     tester.widget<TradePage>(find.byType(TradePage)).onBack();
     await tester.pump();
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
-    );
+    expect(find.byType(NavigationBar), findsNothing);
 
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: HomeScreen(key: key, initialTab: 1),
-        ),
-      ),
-    );
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: HomeScreen(key: key, initialTab: 2),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_home(1, key));
+    await tester.pumpWidget(_home(2, key));
     await tester.pump();
     tester.widget<TradePage>(find.byType(TradePage)).onBack();
     await tester.pump();
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      1,
-    );
+    expect(find.byType(NavigationBar), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 300));

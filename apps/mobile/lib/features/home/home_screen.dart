@@ -7,6 +7,7 @@ import 'package:primevest_mobile/app/brand_logo.dart';
 import 'package:primevest_mobile/app/design_system.dart';
 import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/features/profile/edit_profile_screen.dart';
+import 'package:primevest_mobile/features/community/community_screen.dart';
 import 'package:primevest_mobile/core/account/account_mode_selector.dart';
 import 'package:primevest_mobile/core/account/account_models.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
@@ -33,7 +34,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late int index = widget.initialTab.clamp(0, 4);
+  late int index = widget.initialTab.clamp(0, 5);
   late int lastNonTradeIndex = index == 2 ? 0 : index;
 
   void _selectTab(int value) {
@@ -45,7 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
-      index = widget.initialTab.clamp(0, 4);
+      index = widget.initialTab.clamp(0, 5);
       if (index != 2) lastNonTradeIndex = index;
     }
   }
@@ -63,11 +64,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: TradePage(onBack: () => _selectTab(lastNonTradeIndex))),
       const PortfolioPage(),
       const ProfilePage(),
+      const CommunityScreen(),
     ];
     return LayoutBuilder(builder: (context, constraints) {
-      final wide = kIsWeb && constraints.maxWidth >= 900;
+      final wide = kIsWeb && constraints.maxWidth >= 1200;
       final content = IndexedStack(index: index, children: pages);
+      final titles = [
+        l10n.home,
+        l10n.markets,
+        l10n.trade,
+        l10n.portfolio,
+        l10n.profile,
+        'Community',
+      ];
+      final icons = [
+        Icons.home_outlined,
+        Icons.candlestick_chart_outlined,
+        Icons.swap_vert_circle_outlined,
+        Icons.pie_chart_outline,
+        Icons.person_outline,
+        Icons.forum_outlined,
+      ];
       return Scaffold(
+        appBar: wide
+            ? null
+            : AppBar(
+                toolbarHeight: 56,
+                leading: Builder(
+                  builder: (context) => IconButton(
+                    tooltip: 'Open menu',
+                    icon: const Icon(Icons.menu_rounded),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
+                title: Text(titles[index]),
+              ),
+        drawer: wide
+            ? null
+            : Drawer(
+                child: SafeArea(
+                  child: Column(children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      child: Row(children: [
+                        ZettaxMark(height: 38),
+                        SizedBox(width: 12),
+                        Text('Zettax',
+                            style: TextStyle(
+                              fontSize: 23,
+                              fontWeight: FontWeight.w800,
+                            )),
+                      ]),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: titles.length,
+                        itemBuilder: (context, destination) => ListTile(
+                          leading: Icon(icons[destination]),
+                          title: Text(titles[destination]),
+                          selected: index == destination,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            _selectTab(destination);
+                          },
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
         body: wide
             ? Column(children: [
                 _WebNavigationBar(
@@ -79,36 +144,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     l10n.trade,
                     l10n.portfolio,
                     l10n.profile,
+                    'Community',
                   ],
                 ),
                 Expanded(child: content),
               ])
             : content,
-        bottomNavigationBar: index == 2 || wide
-            ? null
-            : NavigationBar(
-                selectedIndex: index,
-                onDestinationSelected: _selectTab,
-                destinations: [
-                  NavigationDestination(
-                      icon: const Icon(Icons.home_outlined),
-                      selectedIcon: const Icon(Icons.home),
-                      label: l10n.home),
-                  NavigationDestination(
-                      icon: const Icon(Icons.candlestick_chart_outlined),
-                      label: l10n.markets),
-                  NavigationDestination(
-                      icon: const Icon(Icons.swap_vert_circle_outlined),
-                      selectedIcon: const Icon(Icons.swap_vert_circle),
-                      label: l10n.trade),
-                  NavigationDestination(
-                      icon: const Icon(Icons.pie_chart_outline),
-                      label: l10n.portfolio),
-                  NavigationDestination(
-                      icon: const Icon(Icons.person_outline),
-                      label: l10n.profile),
-                ],
-              ),
       );
     });
   }
@@ -134,6 +175,7 @@ class _WebNavigationBar extends ConsumerWidget {
       Icons.swap_vert_circle_outlined,
       Icons.pie_chart_outline,
       Icons.person_outline,
+      Icons.forum_outlined,
     ];
     return Container(
       height: 72,

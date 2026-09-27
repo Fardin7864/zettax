@@ -18,8 +18,16 @@ export class CommunityGateway {
     dislikeCount: number;
     commentCount: number;
     shareCount: number;
+    reactionCounts?: Record<string, number>;
   }) {
-    this.server?.emit("community:changed", post);
+    this.server?.emit("community:changed", {
+      id: post.id,
+      likeCount: post.likeCount,
+      dislikeCount: post.dislikeCount,
+      commentCount: post.commentCount,
+      shareCount: post.shareCount,
+      ...(post.reactionCounts ? { reactionCounts: post.reactionCounts } : {}),
+    });
   }
 
   created(postId: string) {
