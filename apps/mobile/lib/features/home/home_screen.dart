@@ -19,6 +19,7 @@ import 'package:primevest_mobile/demo/providers.dart';
 import 'package:primevest_mobile/features/shared/market_widgets.dart';
 import 'package:primevest_mobile/features/shared/ohlc_chart.dart';
 import 'package:primevest_mobile/features/shared/live_trade_chart.dart';
+import 'package:primevest_mobile/features/shared/chart_time_controls.dart';
 import 'package:primevest_mobile/features/shared/market_performance.dart';
 import 'package:primevest_mobile/l10n/app_localizations.dart';
 import 'package:primevest_mobile/market/display_currency.dart';
@@ -986,6 +987,21 @@ class _TradePageState extends ConsumerState<TradePage> {
       limit: period.limit,
     );
     final displaySeries = ref.watch(liveCandlesProvider(candleRequest));
+    final chartTimeOptions = _chartPeriods
+        .map((item) =>
+            (id: item.id, label: item.shortLabel, description: item.menuLabel))
+        .toList();
+    final series = displaySeries.valueOrNull;
+    final chartStatus = series?.freshness == 'SAMPLED'
+        ? 'Sampled'
+        : series?.freshness == 'SIMULATED'
+            ? 'Simulated'
+            : series != null &&
+                    DateTime.now().difference(series.receivedAt).inSeconds > 30
+                ? 'Delayed'
+                : series?.delivery == 'WEBSOCKET'
+                    ? null
+                    : 'Updating';
     final minuteSeries = ref.watch(
         liveCandlesProvider((assetId: asset.id, interval: '1m', limit: 120)));
     final dailyHistory = ref.watch(dailyPerformanceProvider(asset.id));
@@ -1482,37 +1498,21 @@ class _TradePageState extends ConsumerState<TradePage> {
                                         fontWeight: FontWeight.w800)),
                               ),
                               if (!compactDesktop) const Spacer(),
-                              if (!compactDesktop)
+                              if (!compactDesktop && chartStatus != null)
                                 Text(
-                                  displaySeries.valueOrNull?.freshness ==
-                                          'SAMPLED'
-                                      ? '● Sampled real price'
-                                      : displaySeries.valueOrNull?.freshness ==
-                                              'SIMULATED'
-                                          ? '● Simulated'
-                                          : displaySeries
-                                                      .valueOrNull?.delivery ==
-                                                  'WEBSOCKET'
-                                              ? '● Live'
-                                              : '● Updating',
+                                  chartStatus,
                                   style: const TextStyle(
                                       color: PrimeVestDesignSystem.primaryGold,
                                       fontSize: 11),
                                 ),
                               const SizedBox(width: 12),
-                              PopupMenuButton<String>(
+                              ChartTimeMenu(
                                 key:
                                     const ValueKey('desktop-chart-period-menu'),
-                                initialValue: periodId,
-                                tooltip: 'Chart period',
+                                value: periodId,
+                                options: chartTimeOptions,
                                 onSelected: (value) =>
                                     setState(() => periodId = value),
-                                itemBuilder: (_) => _chartPeriods
-                                    .map((value) => PopupMenuItem(
-                                        value: value.id,
-                                        child: Text(value.menuLabel)))
-                                    .toList(),
-                                child: Chip(label: Text(period.shortLabel)),
                               ),
                             ]),
                           ),
@@ -1651,14 +1651,13 @@ class _TradePageState extends ConsumerState<TradePage> {
                                     style: TextStyle(
                                         color: PrimeVestDesignSystem.textMuted,
                                         fontSize: 12)),
-                              if (timed)
-                                _DurationPresets(
-                                  value: durationSeconds,
-                                  onSelected: submitting
-                                      ? null
-                                      : (value) => setState(
-                                          () => durationSeconds = value),
-                                ),
+                              ChartTimeStrip(
+                                key: const ValueKey('desktop-chart-time-strip'),
+                                value: periodId,
+                                options: chartTimeOptions,
+                                onSelected: (value) =>
+                                    setState(() => periodId = value),
+                              ),
                               const SizedBox(height: 24),
                               if (!tradingAvailable)
                                 const Padding(
@@ -1825,35 +1824,16 @@ class _TradePageState extends ConsumerState<TradePage> {
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             const Spacer(),
-            Text(
-                displaySeries.valueOrNull?.freshness == 'SAMPLED'
-                    ? '● Sampled real price'
-                    : displaySeries.valueOrNull?.freshness == 'SIMULATED'
-                        ? '● Simulated'
-                        : displaySeries.valueOrNull != null &&
-                                DateTime.now()
-                                        .difference(displaySeries
-                                            .valueOrNull!.receivedAt)
-                                        .inSeconds >
-                                    30
-                            ? '● Delayed'
-                            : displaySeries.valueOrNull?.delivery == 'WEBSOCKET'
-                                ? '● Live'
-                                : '● Updating',
-                style: const TextStyle(
-                    color: PrimeVestDesignSystem.primaryGold, fontSize: 9)),
-            PopupMenuButton<String>(
+            if (chartStatus != null)
+              Text(chartStatus,
+                  style: const TextStyle(
+                      color: PrimeVestDesignSystem.primaryGold, fontSize: 9)),
+            const SizedBox(width: 6),
+            ChartTimeMenu(
               key: const ValueKey('chart-period-menu'),
-              initialValue: periodId,
-              tooltip: 'Chart period',
+              value: periodId,
+              options: chartTimeOptions,
               onSelected: (value) => setState(() => periodId = value),
-              itemBuilder: (_) => _chartPeriods
-                  .map((value) => PopupMenuItem(
-                      value: value.id, child: Text(value.menuLabel)))
-                  .toList(),
-              child: Padding(
-                  padding: const EdgeInsets.all(3),
-                  child: Text(period.shortLabel)),
             ),
           ]),
           Expanded(
@@ -1944,14 +1924,12 @@ class _TradePageState extends ConsumerState<TradePage> {
                               fontSize: 11,
                               color: PrimeVestDesignSystem.textMuted)))),
           ]),
-          if (timed)
-            _DurationPresets(
-              value: durationSeconds,
-              compact: true,
-              onSelected: submitting
-                  ? null
-                  : (value) => setState(() => durationSeconds = value),
-            ),
+          ChartTimeStrip(
+            key: const ValueKey('chart-time-strip'),
+            value: periodId,
+            options: chartTimeOptions,
+            onSelected: (value) => setState(() => periodId = value),
+          ),
           const SizedBox(height: 3),
           Row(children: [
             Expanded(
@@ -2575,44 +2553,6 @@ class _TradeModeSelector extends StatelessWidget {
               textStyle: WidgetStateProperty.all(
                   const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
         ),
-      );
-}
-
-class _DurationPresets extends StatelessWidget {
-  const _DurationPresets(
-      {required this.value, required this.onSelected, this.compact = false});
-  final int value;
-  final bool compact;
-  final ValueChanged<int>? onSelected;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        height: compact ? 30 : 37,
-        child: ListView(scrollDirection: Axis.horizontal, children: [
-          for (final (seconds, label) in [
-            (60, '1m'),
-            (300, '5m'),
-            (600, '10m'),
-            (900, '15m'),
-            (3600, '1h')
-          ])
-            Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: TextButton(
-                  key: ValueKey('duration-preset-$seconds'),
-                  onPressed:
-                      onSelected == null ? null : () => onSelected!(seconds),
-                  style: TextButton.styleFrom(
-                    minimumSize: Size(compact ? 38 : 42, compact ? 28 : 34),
-                    padding: const EdgeInsets.symmetric(horizontal: 7),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: value == seconds
-                        ? const Color(0x44F8B425)
-                        : const Color(0xFF332D25),
-                  ),
-                  child: Text(label, style: const TextStyle(fontSize: 10)),
-                )),
-        ]),
       );
 }
 
