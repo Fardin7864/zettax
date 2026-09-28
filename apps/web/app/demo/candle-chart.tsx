@@ -26,12 +26,14 @@ export function CandleChart({
   precision,
   interval,
   referenceLine = false,
+  targetPrice,
   emptyLabel = "Waiting for market candles…",
 }: {
   candles: Candle[];
   precision: number;
   interval: string;
   referenceLine?: boolean;
+  targetPrice?: number;
   emptyLabel?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -92,8 +94,8 @@ export function CandleChart({
       );
     const lows = parsed.map((item) => (referenceLine ? item.c : item.l));
     const highs = parsed.map((item) => (referenceLine ? item.c : item.h));
-    const min = Math.min(...lows);
-    const max = Math.max(...highs);
+    const min = Math.min(...lows, ...(targetPrice !== undefined ? [targetPrice] : []));
+    const max = Math.max(...highs, ...(targetPrice !== undefined ? [targetPrice] : []));
     const padding = (max - min || max * 0.01) * 0.09;
     const floor = min - padding;
     const ceiling = max + padding;
@@ -130,7 +132,7 @@ export function CandleChart({
       ma25: ma(25),
       ma99: ma(99),
     };
-  }, [visibleCandles, referenceLine, allCloses, visibleStart]);
+  }, [visibleCandles, referenceLine, allCloses, visibleStart, targetPrice]);
 
   if (!chart.parsed.length)
     return <div className="trading-chart-empty">{emptyLabel}</div>;
@@ -340,6 +342,7 @@ export function CandleChart({
           );
         }}
       >
+        {targetPrice !== undefined && <g><line x1={left} x2={plotRight} y1={chart.y(targetPrice)} y2={chart.y(targetPrice)} stroke="#f4c35b" strokeDasharray="7 5" /><text x={left + 8} y={chart.y(targetPrice) - 8} fill="#f4c35b" fontSize="13">Target {formatPrice(targetPrice, precision)}</text></g>}
         {[0, 1, 2, 3, 4].map((index) => {
           const y = top + (index * (chart.plotBottom - top)) / 4;
           const value =

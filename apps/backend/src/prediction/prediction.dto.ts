@@ -4,6 +4,8 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
+  IsBoolean,
 } from "class-validator";
 
 export class CreatePredictionQuestionDto {
@@ -20,9 +22,22 @@ export class PlacePredictionDto {
 }
 
 export class PredictionQuestionsQueryDto {
-  @IsOptional() @IsIn(["OPEN", "SETTLED"]) status?: "OPEN" | "SETTLED";
+  @IsOptional() @IsIn(["OPEN", "CLOSED", "SETTLED", "CANCELLED"]) status?:
+    "OPEN" | "CLOSED" | "SETTLED" | "CANCELLED";
+  @IsOptional() @IsString() @MaxLength(80) search?: string;
+  @IsOptional() @IsIn(["PLATFORM", "MEMBERS"]) source?: "PLATFORM" | "MEMBERS";
+  @IsOptional() @IsIn(["NEWEST", "ENDING", "POPULAR"]) sort?:
+    "NEWEST" | "ENDING" | "POPULAR";
   @IsOptional()
   @IsString()
   @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
   cursor?: string;
+}
+
+export class PredictionReasonDto {
+  @IsString() @Matches(/\S/) @MaxLength(500) reason!: string;
+}
+export class PredictionRestrictionDto {
+  @IsBoolean() enabled!: boolean;
+  @IsString() @Matches(/\S/) @MaxLength(500) reason!: string;
 }

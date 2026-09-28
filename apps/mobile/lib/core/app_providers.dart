@@ -261,6 +261,19 @@ final accountRealtimeBridgeProvider =
         },
         onEvent: (event) {
           if (disposed) return;
+          if (event.type.startsWith('prediction.position.') &&
+              event.type != 'prediction.position.created') {
+            final result =
+                event.payload['result']?.toString().toLowerCase() ?? 'updated';
+            final returned =
+                event.payload['payoutAmount']?.toString() ?? '0.00';
+            ref.read(fundingRealtimeNoticeProvider.notifier).state =
+                FundingRealtimeNotice(
+                    id: '${event.sequence}',
+                    message:
+                        'Prediction $result. Returned \$$returned to your demo wallet.');
+            return;
+          }
           if (event.type != 'FUNDING_UPDATED') return;
           ref.read(fundingRealtimeRevisionProvider.notifier).state++;
           final payload = event.payload;

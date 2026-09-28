@@ -25,7 +25,7 @@ describe("prediction controller responses", () => {
     expect(await controller.questions({})).toEqual({ data: list });
     expect(await controller.question("question-1")).toEqual({ data: question });
     expect(await controller.mine(customer)).toEqual({ data: positions });
-    expect(await controller.create(customer, {} as never)).toEqual({
+    expect(await controller.create(customer, {} as never, "create-test-key")).toEqual({
       data: question,
     });
     expect(await controller.platformCreate(admin, {} as never)).toEqual({

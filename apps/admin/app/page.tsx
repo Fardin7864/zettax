@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
+import { PredictionAdmin } from "./prediction-admin";
 import {
   startRegistration,
   startAuthentication,
@@ -49,6 +50,7 @@ const areas = [
   "kyc",
   "contracts",
   "markets",
+  "predictions",
   "ledger",
   "risk",
   "audit",
@@ -378,6 +380,7 @@ export default function Operations() {
   }
   async function load() {
     if (!token) return;
+    if (area === "predictions") { setData(null); return; }
     const version = ++listVersion.current;
     setBusy(true);
     setMessage("");
@@ -811,7 +814,8 @@ export default function Operations() {
             )}
           </div>
         </header>
-        <div className="toolbar">
+        {area === "predictions" && <PredictionAdmin request={request} />}
+        <div className="toolbar" style={area === "predictions" ? { display: "none" } : undefined}>
           <button disabled={busy} onClick={() => void load()}>
             {busy ? "Loading…" : "Refresh"}
           </button>

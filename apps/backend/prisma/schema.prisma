@@ -218,6 +218,7 @@ model User {
   tradingEnabled     Boolean                  @default(true) @map("trading_enabled")
   depositEnabled     Boolean                  @default(true) @map("deposit_enabled")
   withdrawalEnabled  Boolean                  @default(true) @map("withdrawal_enabled")
+  predictionCreationEnabled Boolean @default(true) @map("prediction_creation_enabled")
   createdAt          DateTime                 @default(now()) @map("created_at")
   updatedAt          DateTime                 @updatedAt @map("updated_at")
   profile            UserProfile?
@@ -1117,8 +1118,13 @@ model CommunityShare {
 }
 
 model PredictionQuestion {
+  systemTemplateKey String? @unique @map("system_template_key")
+  generationContext Json? @map("generation_context")
+  nextSettlementAt DateTime? @map("next_settlement_at")
+  lastSettlementError String? @map("last_settlement_error")
   id String @id @default(uuid()) @db.Uuid
   creatorId String? @map("creator_id") @db.Uuid
+  clientRequestKey String? @map("client_request_key")
   instrumentId String @map("instrument_id") @db.Uuid
   condition PredictionCondition
   targetPrice Decimal @map("target_price") @db.Decimal(30, 12)
@@ -1136,13 +1142,34 @@ model PredictionQuestion {
   yesRealPool Decimal @default(0) @map("yes_real_pool") @db.Decimal(24, 8)
   noRealPool Decimal @default(0) @map("no_real_pool") @db.Decimal(24, 8)
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  participantCount Int @default(0) @map("participant_count")
+  cancellationReason String? @map("cancellation_reason")
+  cancelledAt DateTime? @map("cancelled_at")
+  reports PredictionReport[]
   creator User? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
   instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
   positions PredictionPosition[]
   @@index([status, expiresAt])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
   @@index([creatorId, status])
+  @@unique([creatorId, clientRequestKey])
   @@map("prediction_questions")
+}
+
+model PredictionReport {
+  id String @id @default(uuid()) @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  reporterId String @map("reporter_id") @db.Uuid
+  reason String
+  status String @default("OPEN")
+  resolutionNote String? @map("resolution_note")
+  createdAt DateTime @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+  question PredictionQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  @@unique([questionId, reporterId])
+  @@index([status, createdAt])
+  @@map("prediction_reports")
 }
 
 model PredictionPosition {

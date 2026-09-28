@@ -40,6 +40,9 @@ export function Header() {
           <Link href="/markets" onClick={() => setOpen(false)}>
             Markets
           </Link>
+          <Link href="/predictions" onClick={() => setOpen(false)}>
+            Predictions
+          </Link>
           <Link href="/#features" onClick={() => setOpen(false)}>
             Features
           </Link>
@@ -64,7 +67,8 @@ export function Header() {
             Try Demo
           </Link>
           <a className="button button-gold header-download" href={downloadUrl}>
-            Download App
+            <span className="download-full">Download App</span>
+            <span className="download-short">Download</span>
           </a>
         </div>
         <button

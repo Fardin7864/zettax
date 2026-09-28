@@ -24,7 +24,9 @@ import { PredictionGateway } from "./prediction.gateway";
 
 const questionInclude = {
   instrument: { select: { slug: true, symbol: true, pricePrecision: true } },
-  creator: { select: { profile: { select: { fullName: true } } } },
+  creator: {
+    select: { profile: { select: { fullName: true, avatarObjectKey: true } } },
+  },
 } as const;
 type QuestionRow = Prisma.PredictionQuestionGetPayload<{
   include: typeof questionInclude;
@@ -48,6 +50,11 @@ export class PredictionService {
       real: this.realEnabled(),
       poolFeeRate: "0",
       settlement: "Last archived one-second close before the UTC expiry",
+      minimumStake: "0.01",
+      maximumStake: "100000.00",
+      minimumExpiryMinutes: 10,
+      maximumExpiryDays: 30,
+      missingPriceRefundHours: 24,
     };
   }
 
@@ -69,6 +76,22 @@ export class PredictionService {
       yes + no === 0 ? 50 : Math.round((yes / (yes + no)) * 1000) / 10;
     return {
       id: row.id,
+      creatorId: row.creatorId,
+      generationContext: row.generationContext,
+      nextSettlementAt: row.nextSettlementAt,
+      lastSettlementError: row.lastSettlementError,
+      creatorAvatarUrl:
+        row.creatorId && row.creator?.profile?.avatarObjectKey
+          ? `/community/users/${row.creatorId}/avatar`
+          : null,
+      participantCount: row.participantCount,
+      cancellationReason: row.cancellationReason,
+      cancelledAt: row.cancelledAt,
+      settlementTimestamp: row.settlementTimestamp,
+      displayStatus:
+        row.status === "OPEN" && row.expiresAt.getTime() <= Date.now()
+          ? "CLOSED"
+          : row.status,
       creator: row.creatorId
         ? row.creator?.profile?.fullName || "Zettax member"
         : "Zettax",
@@ -95,16 +118,55 @@ export class PredictionService {
     };
   }
 
-  async list(query: PredictionQuestionsQueryDto) {
+  async list(query: PredictionQuestionsQueryDto, creatorId?: string) {
+    const where: Prisma.PredictionQuestionWhereInput = {
+      ...(creatorId
+        ? { creatorId }
+        : query.source === "PLATFORM"
+          ? { creatorId: null }
+          : query.source === "MEMBERS"
+            ? { creatorId: { not: null } }
+            : {}),
+      ...(query.status === "OPEN"
+        ? { status: "OPEN", expiresAt: { gt: new Date() } }
+        : query.status === "CLOSED"
+          ? { status: "OPEN", expiresAt: { lte: new Date() } }
+          : query.status
+            ? { status: query.status }
+            : {}),
+      ...(query.search
+        ? {
+            instrument: {
+              OR: [
+                { symbol: { contains: query.search, mode: "insensitive" } },
+                { name: { contains: query.search, mode: "insensitive" } },
+              ],
+            },
+          }
+        : {}),
+    };
     const rows = await this.prisma.predictionQuestion.findMany({
-      where: query.status ? { status: query.status } : {},
+      where,
       include: questionInclude,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy:
+        query.sort === "ENDING"
+          ? [{ expiresAt: "asc" }, { id: "asc" }]
+          : query.sort === "POPULAR"
+            ? [
+                { participantCount: "desc" },
+                { createdAt: "desc" },
+                { id: "desc" },
+              ]
+            : [{ createdAt: "desc" }, { id: "desc" }],
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       take: 21,
     });
     const items = rows.slice(0, 20).map((row) => this.question(row));
-    return { items, nextCursor: rows.length > 20 ? items.at(-1)?.id : null };
+    return {
+      items,
+      nextCursor: rows.length > 20 ? items.at(-1)?.id : null,
+      serverTime: new Date().toISOString(),
+    };
   }
 
   async get(id: string) {
@@ -117,7 +179,50 @@ export class PredictionService {
     return this.question(row);
   }
 
-  async create(creatorId: string | null, body: CreatePredictionQuestionDto) {
+  async create(
+    creatorId: string | null,
+    body: CreatePredictionQuestionDto,
+    requestKey?: string,
+    generated?: { key: string; context: Prisma.InputJsonObject },
+  ) {
+    if (creatorId && requestKey) {
+      const prior = await this.prisma.predictionQuestion.findUnique({
+        where: {
+          creatorId_clientRequestKey: {
+            creatorId,
+            clientRequestKey: requestKey,
+          },
+        },
+        include: questionInclude,
+      });
+      if (prior) {
+        if (
+          prior.condition !== body.condition ||
+          !prior.targetPrice.equals(body.targetPrice) ||
+          prior.instrument.slug !== body.instrumentId ||
+          prior.expiresAt.toISOString() !==
+            new Date(body.expiresAt).toISOString()
+        )
+          this.error(
+            "IDEMPOTENCY_KEY_REUSED",
+            "Request key was used for another question.",
+            409,
+          );
+        return this.question(prior);
+      }
+    }
+    if (creatorId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: creatorId },
+        select: { loginEnabled: true, predictionCreationEnabled: true },
+      });
+      if (!user?.loginEnabled || !user.predictionCreationEnabled)
+        this.error(
+          "CREATION_RESTRICTED",
+          "Prediction creation is restricted for this account.",
+          403,
+        );
+    }
     const now = new Date();
     const expiry = new Date(body.expiresAt);
     if (
@@ -183,68 +288,207 @@ export class PredictionService {
         400,
       );
     }
-    const created = await this.prisma.predictionQuestion.create({
-      data: {
-        creatorId,
-        instrumentId: instrument.id,
-        condition: body.condition,
-        targetPrice: target,
-        referencePrice: reference.price,
-        referenceSource: reference.providerId,
-        referenceTimestamp: reference.timestamp,
-        expiresAt: expiry,
-      },
-      include: questionInclude,
+    const created = await this.serializable<QuestionRow>(async (tx) => {
+      if (generated) {
+        const existing = await tx.predictionQuestion.findUnique({
+          where: { systemTemplateKey: generated.key },
+          include: questionInclude,
+        });
+        if (existing) return existing;
+      }
+      if (creatorId) {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${creatorId}::uuid FOR UPDATE`;
+        const user = await tx.user.findUnique({
+          where: { id: creatorId },
+          select: { predictionCreationEnabled: true, loginEnabled: true },
+        });
+        if (!user?.predictionCreationEnabled || !user.loginEnabled)
+          this.error(
+            "CREATION_RESTRICTED",
+            "Prediction creation is restricted.",
+            403,
+          );
+        if (requestKey) {
+          const prior = await tx.predictionQuestion.findUnique({
+            where: {
+              creatorId_clientRequestKey: {
+                creatorId,
+                clientRequestKey: requestKey,
+              },
+            },
+            include: questionInclude,
+          });
+          if (prior) {
+            if (
+              prior.instrumentId !== instrument.id ||
+              prior.condition !== body.condition ||
+              !prior.targetPrice.equals(target) ||
+              prior.expiresAt.getTime() !== expiry.getTime()
+            )
+              this.error(
+                "IDEMPOTENCY_CONFLICT",
+                "This request key was already used for different prediction terms.",
+                409,
+              );
+            return prior;
+          }
+        }
+        const active = await tx.predictionQuestion.count({
+          where: { creatorId, status: "OPEN" },
+        });
+        if (active >= 5)
+          this.error(
+            "QUESTION_LIMIT",
+            "You can have up to five open questions.",
+            429,
+          );
+      }
+      return tx.predictionQuestion.create({
+        data: {
+          creatorId,
+          clientRequestKey: requestKey ?? null,
+          ...(generated
+            ? {
+                systemTemplateKey: generated.key,
+                generationContext: generated.context,
+              }
+            : {}),
+          instrumentId: instrument.id,
+          condition: body.condition,
+          targetPrice: target,
+          referencePrice: reference.price,
+          referenceSource: reference.providerId,
+          referenceTimestamp: reference.timestamp,
+          expiresAt: expiry,
+        },
+        include: questionInclude,
+      });
     });
     this.gateway.created(created.id);
     return this.question(created);
   }
 
-  /** Keep a small set of objective demo questions available without manual entry. */
+  /** Real archived price anchors, never fabricated forecasts or retroactive bets. */
   async ensurePlatformQuestions() {
     const now = new Date();
     let created = 0;
-    for (const slug of ["btc-usd", "eth-usd"]) {
+    const templates = [
+      {
+        name: "NEXT_HOUR",
+        lookbackHours: 0,
+        horizonHours: 1,
+        condition: "ABOVE" as const,
+      },
+      {
+        name: "HOURLY_RECLAIM",
+        lookbackHours: 1,
+        horizonHours: 4,
+        condition: "ABOVE" as const,
+      },
+      {
+        name: "DAILY_LEVEL",
+        lookbackHours: 24,
+        horizonHours: 24,
+        condition: "BELOW" as const,
+      },
+    ];
+    for (const slug of [
+      "btc-usd",
+      "eth-usd",
+      "sol-usd",
+      "xrp-usd",
+      "bch-usd",
+      "ada-usd",
+      "doge-usd",
+      "avax-usd",
+      "link-usd",
+      "ltc-usd",
+      "dot-usd",
+      "sui-usd",
+    ]) {
       const instrument = await this.prisma.instrument.findUnique({
         where: { slug },
       });
-      if (!instrument?.demoEnabled) continue;
-      const existing = await this.prisma.predictionQuestion.count({
-        where: {
-          creatorId: null,
-          instrumentId: instrument.id,
-          status: PredictionQuestionStatus.OPEN,
-          expiresAt: { gt: now },
-        },
-      });
-      if (existing > 0) continue;
-      try {
-        const reference = await this.prices.at(instrument, now);
-        await this.create(null, {
-          instrumentId: slug,
-          condition: "ABOVE",
-          targetPrice: reference.price.toFixed(instrument.pricePrecision),
-          expiresAt: new Date(now.getTime() + 60 * 60_000).toISOString(),
+      if (!instrument?.demoEnabled || instrument.assetClass !== "CRYPTO")
+        continue;
+      for (const template of templates) {
+        // One active question per market/template, across repeated worker cycles.
+        const prefix = `${slug}:${template.name}:`;
+        const existing = await this.prisma.predictionQuestion.count({
+          where: {
+            systemTemplateKey: { startsWith: prefix },
+            status: "OPEN",
+            expiresAt: { gt: now },
+          },
         });
-        created++;
-      } catch (error) {
-        Logger.warn(
-          `Platform question for ${slug} could not be created: ${error instanceof Error ? error.name : "UnknownError"}`,
-          "PredictionQuestions",
-        );
+        if (existing) continue;
+        const bucket = Math.floor(now.getTime() / 3_600_000);
+        const key = `${prefix}${bucket}`;
+        // A cancellation must not immediately recreate the same question.
+        if (
+          await this.prisma.predictionQuestion.findUnique({
+            where: { systemTemplateKey: key },
+          })
+        )
+          continue;
+        try {
+          const historical = await this.prices.at(
+            instrument,
+            new Date(now.getTime() - template.lookbackHours * 3_600_000),
+          );
+          await this.create(
+            null,
+            {
+              instrumentId: slug,
+              condition: template.condition,
+              targetPrice: historical.price.toFixed(instrument.pricePrecision),
+              expiresAt: new Date(
+                (bucket + template.horizonHours + 1) * 3_600_000,
+              ).toISOString(),
+            },
+            undefined,
+            {
+              key,
+              context: {
+                kind: "HISTORICAL_PRICE_ANCHOR",
+                template: template.name,
+                lookbackHours: template.lookbackHours,
+                anchorPrice: historical.price.toFixed(),
+                anchorTimestamp: historical.timestamp.toISOString(),
+                source: historical.providerId,
+                generatedAt: now.toISOString(),
+                explanation:
+                  template.lookbackHours === 0
+                    ? "Compare the future price with the verified price at creation."
+                    : `Compare the future price with the verified price ${template.lookbackHours} hours before creation.`,
+              },
+            },
+          );
+          created++;
+        } catch (error) {
+          Logger.warn(
+            `Platform question ${slug}/${template.name} skipped: ${error instanceof Error ? error.name : "UnknownError"}`,
+            "PredictionQuestions",
+          );
+        }
       }
     }
     return { created };
   }
 
-  async myPositions(userId: string) {
+  async myPositions(
+    userId: string,
+    query: PredictionQuestionsQueryDto = {},
+    questionId?: string,
+  ) {
     const rows = await this.prisma.predictionPosition.findMany({
-      where: { userId },
+      where: { userId, ...(questionId ? { questionId } : {}) },
       include: { question: { include: questionInclude } },
-      orderBy: { createdAt: "desc" },
-      take: 100,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      take: 21,
     });
-    return rows.map((row) => ({
+    const items = rows.slice(0, 20).map((row) => ({
       id: row.id,
       question: this.question(row.question),
       accountMode: row.mode,
@@ -255,6 +499,43 @@ export class PredictionService {
       createdAt: row.createdAt,
       settledAt: row.settledAt,
     }));
+    return { items, nextCursor: rows.length > 20 ? items.at(-1)?.id : null };
+  }
+
+  async personalEvents(userId: string, afterSequence?: string) {
+    if (
+      afterSequence !== undefined &&
+      (!/^\d{1,19}$/.test(afterSequence) ||
+        BigInt(afterSequence) > 9223372036854775807n)
+    )
+      this.error("SEQUENCE_INVALID", "Invalid event sequence.", 400);
+    const stream = await this.prisma.accountEventStream.findUnique({
+      where: { userId },
+      select: { lastSequence: true },
+    });
+    const latest = stream?.lastSequence ?? 0n;
+    if (afterSequence === undefined || BigInt(afterSequence) > latest)
+      return { events: [], nextSequence: latest.toString() };
+    const events = await this.prisma.accountEvent.findMany({
+      where: {
+        userId,
+        sequence: { gt: BigInt(afterSequence), lte: latest },
+        eventType: { startsWith: "prediction.position." },
+      },
+      orderBy: { sequence: "asc" },
+      take: 100,
+    });
+    return {
+      events: events.map((e) => ({
+        sequence: e.sequence.toString(),
+        type: e.eventType,
+        payload: e.payload,
+      })),
+      nextSequence: (events.length === 100
+        ? events.at(-1)!.sequence
+        : latest
+      ).toString(),
+    };
   }
 
   async place(
@@ -340,10 +621,30 @@ export class PredictionService {
       const count = await tx.predictionPosition.count({
         where: { questionId },
       });
+      const previous = await tx.predictionPosition.findFirst({
+        where: { questionId, userId, mode },
+        select: { side: true },
+      });
+      if (previous && previous.side !== body.side)
+        this.error(
+          "SIDE_LOCKED",
+          "You already chose the other side. You can add to your existing side only.",
+          409,
+        );
+      const eligible = await tx.user.findUnique({
+        where: { id: userId },
+        select: { tradingEnabled: true },
+      });
+      if (!eligible?.tradingEnabled)
+        this.error(
+          "ACCOUNT_RESTRICTED",
+          "Prediction participation is restricted for this account.",
+          403,
+        );
       if (count >= 500)
         this.error(
           "QUESTION_FULL",
-          "This question has reached its participant limit.",
+          "This question has reached its 500-entry capacity.",
           409,
         );
       const account = await tx.account.findUnique({
@@ -406,7 +707,10 @@ export class PredictionService {
           "yesDemoPool" | "noDemoPool" | "yesRealPool" | "noRealPool";
       await tx.predictionQuestion.update({
         where: { id: questionId },
-        data: { [poolField]: { increment: stake } },
+        data: {
+          [poolField]: { increment: stake },
+          ...(!previous ? { participantCount: { increment: 1 } } : {}),
+        },
       });
       const accounts = await this.ledger.ensureAccountLedgerAccounts(
         tx,
@@ -473,6 +777,10 @@ export class PredictionService {
       where: {
         status: PredictionQuestionStatus.OPEN,
         expiresAt: { lte: new Date() },
+        OR: [
+          { nextSettlementAt: null },
+          { nextSettlementAt: { lte: new Date() } },
+        ],
       },
       orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
       take: Math.max(1, Math.min(limit, 20)),
@@ -483,13 +791,256 @@ export class PredictionService {
       try {
         if (await this.settleOne(item.id)) settled++;
       } catch (error) {
+        const question = await this.prisma.predictionQuestion.findUnique({
+          where: { id: item.id },
+          select: { expiresAt: true },
+        });
+        if (
+          error instanceof ApiErrorException &&
+          error.code === "CONTRACT_PRICE_UNAVAILABLE" &&
+          question &&
+          Date.now() - question.expiresAt.getTime() >= 24 * 60 * 60_000
+        ) {
+          await this.cancel(
+            item.id,
+            "The original expiry price was unavailable for 24 hours. All stakes were refunded.",
+          );
+          continue;
+        }
         Logger.warn(
           `Question ${item.id} remains pending: ${error instanceof Error ? error.name : "UnknownError"}`,
           "PredictionSettlement",
         );
+        // An unavailable old observation must not starve later due questions.
+        await this.prisma.predictionQuestion.updateMany({
+          where: { id: item.id, status: "OPEN" },
+          data: {
+            nextSettlementAt: new Date(Date.now() + 60_000),
+            lastSettlementError:
+              error instanceof ApiErrorException
+                ? error.code
+                : "SETTLEMENT_RETRY_REQUIRED",
+          },
+        });
       }
     }
     return { examined: due.length, settled };
+  }
+
+  async report(userId: string, questionId: string, reason: string) {
+    await this.get(questionId);
+    return this.prisma.predictionReport.upsert({
+      where: { questionId_reporterId: { questionId, reporterId: userId } },
+      create: { questionId, reporterId: userId, reason: reason.trim() },
+      update: {},
+      select: { id: true, status: true },
+    });
+  }
+
+  async reports(cursor?: string) {
+    const rows = await this.prisma.predictionReport.findMany({
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: 21,
+      include: { question: { include: questionInclude } },
+    });
+    const items = rows
+      .slice(0, 20)
+      .map((row) => ({ ...row, question: this.question(row.question) }));
+    return { items, nextCursor: rows.length > 20 ? items.at(-1)?.id : null };
+  }
+
+  async resolveReport(id: string, reason: string, adminId: string) {
+    return this.serializable(async (tx) => {
+      const report = await tx.predictionReport.update({
+        where: { id },
+        data: {
+          status: "RESOLVED",
+          resolutionNote: reason.trim(),
+          resolvedAt: new Date(),
+        },
+      });
+      await this.audit(tx, adminId, "PREDICTION_REPORT_RESOLVED", id, reason);
+      return report;
+    });
+  }
+
+  async restrictCreator(
+    userId: string,
+    enabled: boolean,
+    reason: string,
+    adminId: string,
+  ) {
+    return this.serializable(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { predictionCreationEnabled: enabled },
+      });
+      await this.audit(
+        tx,
+        adminId,
+        "PREDICTION_CREATION_PERMISSION",
+        userId,
+        reason,
+        { enabled },
+      );
+      return { userId, enabled };
+    });
+  }
+
+  private audit(
+    tx: Prisma.TransactionClient,
+    adminId: string | undefined,
+    action: string,
+    resourceId: string,
+    reason: string,
+    extra = {},
+  ) {
+    return tx.auditLog.create({
+      data: {
+        actorType: adminId ? "ADMIN" : "SYSTEM",
+        actorAdminId: adminId ?? null,
+        action,
+        resourceType: "Prediction",
+        resourceId,
+        requestId: `prediction:${resourceId}`,
+        newValue: { reason: reason.trim(), ...extra },
+      },
+    });
+  }
+
+  async cancel(questionId: string, reason: string, adminId?: string) {
+    const response = await this.serializable(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM prediction_questions WHERE id = ${questionId}::uuid FOR UPDATE`;
+      const question = await tx.predictionQuestion.findUnique({
+        where: { id: questionId },
+        include: { positions: true },
+      });
+      if (!question)
+        this.error("QUESTION_NOT_FOUND", "Prediction not found.", 404);
+      if (question.status === "CANCELLED")
+        return { id: questionId, refunded: true };
+      if (question.status !== "OPEN")
+        this.error(
+          "QUESTION_SETTLED",
+          "A resolved prediction cannot be cancelled.",
+          409,
+        );
+      for (const position of [...question.positions].sort(
+        (a, b) =>
+          a.accountId.localeCompare(b.accountId) || a.id.localeCompare(b.id),
+      )) {
+        if (position.result !== "PENDING") continue;
+        const wallet = await this.ledger.lockWallet(tx, position.accountId);
+        if (wallet.lockedProjection.lessThan(position.stake))
+          this.error(
+            "LEDGER_PROJECTION_MISMATCH",
+            "Locked funds do not reconcile.",
+            409,
+          );
+        const accounts = await this.ledger.ensureAccountLedgerAccounts(
+          tx,
+          position.accountId,
+          position.mode,
+        );
+        await this.ledger.post(tx, {
+          type: LedgerTransactionType.TRADE_SETTLEMENT,
+          idempotencyKey: `prediction-refund:${position.id}`,
+          description: "Cancelled prediction: full stake refund",
+          reference: position.id,
+          entries: [
+            {
+              ledgerAccountId: accounts.locked,
+              direction: LedgerDirection.DEBIT,
+              amount: position.stake,
+            },
+            {
+              ledgerAccountId: accounts.available,
+              direction: LedgerDirection.CREDIT,
+              amount: position.stake,
+            },
+          ],
+        });
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            lockedProjection: { decrement: position.stake },
+            availableProjection: { increment: position.stake },
+          },
+        });
+        const updated = await tx.predictionPosition.update({
+          where: { id: position.id },
+          data: {
+            result: "REFUNDED",
+            payoutAmount: position.stake,
+            settledAt: new Date(),
+          },
+        });
+        await this.outbox.enqueueAccount(tx, position.userId, {
+          aggregateType: "PredictionPosition",
+          aggregateId: position.id,
+          eventType: "prediction.position.refunded",
+          payload: this.positionResponse(updated),
+        });
+        await tx.notification.create({
+          data: {
+            userId: position.userId,
+            type: "PREDICTION_RESULT",
+            titleKey: "prediction.refunded",
+            bodyKey: "prediction.result",
+            data: {
+              questionId,
+              result: "REFUNDED",
+              payoutAmount: position.stake.toFixed(2),
+              accountMode: position.mode,
+            },
+          },
+        });
+      }
+      await tx.predictionQuestion.update({
+        where: { id: questionId },
+        data: {
+          status: "CANCELLED",
+          cancellationReason: reason.trim(),
+          cancelledAt: new Date(),
+        },
+      });
+      await this.audit(tx, adminId, "PREDICTION_CANCELLED", questionId, reason);
+      return { id: questionId, refunded: true };
+    });
+    this.gateway.changed(questionId);
+    return response;
+  }
+
+  async participants(questionId: string, cursor?: string) {
+    const rows = await this.prisma.predictionPosition.findMany({
+      where: { questionId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 21,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: {
+        user: { select: { id: true, profile: { select: { fullName: true } } } },
+      },
+    });
+    const items = rows.slice(0, 20).map((row) => ({
+      ...this.positionResponse(row),
+      userId: row.userId,
+      name: row.user.profile?.fullName ?? "Zettax member",
+    }));
+    return { items, nextCursor: rows.length > 20 ? items.at(-1)?.id : null };
+  }
+
+  async retrySettlement(questionId: string, adminId?: string) {
+    await this.prisma.$transaction((tx) =>
+      this.audit(
+        tx,
+        adminId,
+        "PREDICTION_SETTLEMENT_RETRY",
+        questionId,
+        "Retry original archived expiry observation",
+      ),
+    );
+    return { settled: await this.settleOne(questionId) };
   }
 
   private async settleOne(questionId: string): Promise<boolean> {
@@ -631,7 +1182,10 @@ export class PredictionService {
           reference: position.id,
           entries,
         });
-        const result = payout.equals(position.stake)
+        const hasWinningStake = question.positions.some(
+          (entry) => entry.mode === position.mode && entry.side === outcome,
+        );
+        const result = !hasWinningStake
           ? PredictionPositionResult.REFUNDED
           : position.side === outcome
             ? PredictionPositionResult.WON
@@ -646,11 +1200,27 @@ export class PredictionService {
           eventType: "prediction.position.settled",
           payload: this.positionResponse(updated),
         });
+        await tx.notification.create({
+          data: {
+            userId: position.userId,
+            type: "PREDICTION_RESULT",
+            titleKey: "prediction.settled",
+            bodyKey: "prediction.result",
+            data: {
+              questionId,
+              result,
+              payoutAmount: payout.toFixed(2),
+              accountMode: position.mode,
+            },
+          },
+        });
       }
       await tx.predictionQuestion.update({
         where: { id: questionId },
         data: {
           status: PredictionQuestionStatus.SETTLED,
+          nextSettlementAt: null,
+          lastSettlementError: null,
           outcome,
           settlementPrice: quote.price,
           settlementSource: quote.providerId,
@@ -679,7 +1249,10 @@ export class PredictionService {
       } catch (error) {
         if (
           !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-          !["P2034", "P2002"].includes(error.code) ||
+          !(
+            ["P2034", "P2002"].includes(error.code) ||
+            (error.code === "P2010" && error.meta?.code === "40001")
+          ) ||
           attempt === 2
         )
           throw error;

@@ -39,13 +39,25 @@ async function bootstrap(): Promise<void> {
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
   let nextQuestionCheck = 0;
+  let questionGeneration: Promise<unknown> | undefined;
   while (!stopping) {
     try {
       await contracts.settleDueBatch(50);
       await predictions.settleDueBatch(5);
-      if (Date.now() >= nextQuestionCheck) {
+      if (!questionGeneration && Date.now() >= nextQuestionCheck) {
         nextQuestionCheck = Date.now() + 60_000;
-        await predictions.ensurePlatformQuestions();
+        // Historical provider calls must never delay contract or prediction settlement.
+        questionGeneration = predictions
+          .ensurePlatformQuestions()
+          .catch((error) => {
+            console.error(
+              "prediction generation failed",
+              error instanceof Error ? error.name : "UnknownError",
+            );
+          })
+          .finally(() => {
+            questionGeneration = undefined;
+          });
       }
       await outbox.publishBatch(100);
     } catch (error) {
@@ -56,6 +68,7 @@ async function bootstrap(): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
+  await questionGeneration;
   await app.close();
 }
 

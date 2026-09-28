@@ -9,6 +9,7 @@ import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/features/profile/edit_profile_screen.dart';
 import 'package:primevest_mobile/features/profile/two_factor_widgets.dart';
 import 'package:primevest_mobile/features/community/community_screen.dart';
+import 'package:primevest_mobile/features/predictions/predictions_screen.dart';
 import 'package:primevest_mobile/core/account/account_mode_selector.dart';
 import 'package:primevest_mobile/core/account/account_models.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
@@ -36,7 +37,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late int index = widget.initialTab.clamp(0, 5);
+  late int index = widget.initialTab.clamp(0, 6);
   late int lastNonTradeIndex = index == 2 ? 0 : index;
   int communityRevision = 0;
 
@@ -64,7 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
-      index = widget.initialTab.clamp(0, 5);
+      index = widget.initialTab.clamp(0, 6);
       if (index != 2) lastNonTradeIndex = index;
     }
   }
@@ -83,6 +84,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const PortfolioPage(),
       const ProfilePage(),
       CommunityScreen(key: ValueKey('community-$communityRevision')),
+      PredictionsScreen(active: index == 6),
     ];
     return LayoutBuilder(builder: (context, constraints) {
       final wide = kIsWeb && constraints.maxWidth >= 1200;
@@ -97,6 +99,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         l10n.portfolio,
         l10n.profile,
         'Community',
+        'Predictions',
       ];
       final icons = [
         Icons.home_outlined,
@@ -105,6 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Icons.pie_chart_outline,
         Icons.person_outline,
         Icons.forum_outlined,
+        Icons.insights_outlined,
       ];
       return Scaffold(
         appBar: wide
@@ -189,6 +193,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     l10n.portfolio,
                     l10n.profile,
                     'Community',
+                    'Predictions',
                   ],
                 ),
                 Expanded(child: content),
@@ -222,6 +227,7 @@ class _WebNavigationBar extends ConsumerWidget {
       Icons.pie_chart_outline,
       Icons.person_outline,
       Icons.forum_outlined,
+      Icons.insights_outlined,
     ];
     return Container(
       height: 72,

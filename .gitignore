@@ -30,3 +30,6 @@ apps/admin/tsconfig.tsbuildinfo
 *.apk
 
 .vercel
+# Browser test output (never published).
+apps/web/test-results/
+apps/web/playwright-report/
