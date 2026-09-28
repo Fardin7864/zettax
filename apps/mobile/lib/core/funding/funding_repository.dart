@@ -65,7 +65,7 @@ class FundingRepository {
     } on ApiFailure catch (error) {
       if (error.code == 'CONVERSION_RATE_CHANGED' ||
           (command['uncertain'] != true &&
-          (error.statusCode == 400 || error.statusCode == 403))) {
+              (error.statusCode == 400 || error.statusCode == 403))) {
         await _pending.clear(_key);
       } else {
         await _pending.write(_key, jsonEncode({...command, 'uncertain': true}));
@@ -134,7 +134,8 @@ class FundingRepository {
       _submit('/deposits', {
         'paymentMethodId': methodId,
         'amount': amount,
-        if (expectedConversionRate != null) 'expectedConversionRate': expectedConversionRate,
+        if (expectedConversionRate != null)
+          'expectedConversionRate': expectedConversionRate,
         'senderMobile': _mobile(senderMobile),
         'providerTransactionId': transactionId,
         if (evidenceObjectKey != null) 'evidenceObjectKey': evidenceObjectKey
@@ -164,14 +165,19 @@ class FundingRepository {
     required String amount,
     String? expectedConversionRate,
     required String receiverMobile,
+    required String verificationMethod,
+    required String verificationCode,
   }) async {
     await _submit(
       '/withdrawals',
       {
         'paymentMethodId': methodId,
         'amount': amount,
-        if (expectedConversionRate != null) 'expectedConversionRate': expectedConversionRate,
+        if (expectedConversionRate != null)
+          'expectedConversionRate': expectedConversionRate,
         'receiverMobile': _mobile(receiverMobile),
+        'verificationMethod': verificationMethod,
+        'verificationCode': verificationCode,
       },
     );
   }

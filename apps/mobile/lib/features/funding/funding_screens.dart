@@ -8,6 +8,8 @@ import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
 import 'package:primevest_mobile/core/funding/funding_models.dart';
 import 'package:primevest_mobile/features/funding/funding_brand.dart';
+import 'package:primevest_mobile/features/profile/two_factor_widgets.dart';
+import 'package:go_router/go_router.dart';
 
 Future<void> _recoverFunding(BuildContext context, WidgetRef ref) async {
   final agreed = await showDialog<bool>(
@@ -138,7 +140,8 @@ class _FundingHistoryState extends ConsumerState<FundingHistoryScreen> {
                           ? PrimeVestDesignSystem.primaryGold
                               .withValues(alpha: 0.12)
                           : null,
-                      title: Text('${row['usdAmount'] == null ? '' : '\$${row['usdAmount']} · '}৳${row['amount']} · ${row['status']}'),
+                      title: Text(
+                          '${row['usdAmount'] == null ? '' : '\$${row['usdAmount']} · '}৳${row['amount']} · ${row['status']}'),
                       subtitle: Text(
                           '${row['providerTransactionId'] ?? row['receiverMobile'] ?? ''}\n${row['rejectionReason'] ?? 'Updated: ${row['updatedAt'] ?? row['createdAt']}'}'),
                       isThreeLine: true);
@@ -224,7 +227,8 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
         _ReceivingCard(method: selected, reveal: data.submissionsEnabled),
         const SizedBox(height: 22),
         const _Title('2. Enter transfer details'),
-        Text('Deposit rate: ৳${data.depositBdtPerUsd} = \$1.00. The approved BDT amount is converted to USD in your wallet.',
+        Text(
+            'Deposit rate: ৳${data.depositBdtPerUsd} = \$1.00. The approved BDT amount is converted to USD in your wallet.',
             style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
         const SizedBox(height: 10),
         TextField(
@@ -241,7 +245,8 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
           ),
         ),
         if ((double.tryParse(amount.text) ?? 0) > 0)
-          Text('Estimated USD credit after approval: \$${((double.tryParse(amount.text) ?? 0) / (double.tryParse(data.depositBdtPerUsd) ?? 125)).toStringAsFixed(2)}'),
+          Text(
+              'Estimated USD credit after approval: \$${((double.tryParse(amount.text) ?? 0) / (double.tryParse(data.depositBdtPerUsd) ?? 125)).toStringAsFixed(2)}'),
         const SizedBox(height: 12),
         TextField(
           controller: sender,
@@ -335,7 +340,8 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
       await repository.createDeposit(
           methodId: submittedMethod,
           amount: submittedAmount,
-          expectedConversionRate: ref.read(depositMethodsProvider).valueOrNull?.depositBdtPerUsd,
+          expectedConversionRate:
+              ref.read(depositMethodsProvider).valueOrNull?.depositBdtPerUsd,
           senderMobile: submittedSender,
           transactionId: submittedTransaction,
           evidenceObjectKey: key);
@@ -434,10 +440,12 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           onSelected: enabled ? (id) => setState(() => selectedId = id) : null,
         ),
         const SizedBox(height: 18),
-        Text('Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
+        Text(
+            'Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
             style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
         if ((double.tryParse(amount.text) ?? 0) > 0)
-          Text('Estimated payout: ৳${((double.tryParse(amount.text) ?? 0) * (double.tryParse(data.withdrawalBdtPerUsd) ?? 118)).toStringAsFixed(2)}'),
+          Text(
+              'Estimated payout: ৳${((double.tryParse(amount.text) ?? 0) * (double.tryParse(data.withdrawalBdtPerUsd) ?? 118)).toStringAsFixed(2)}'),
         const SizedBox(height: 10),
         TextField(
           controller: amount,
@@ -498,11 +506,27 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     setState(() => submitting = true);
     try {
+      final security = await ref.read(verificationRepositoryProvider).status();
+      if (!mounted) return;
+      if (!security.enabled) {
+        showTopNotification(
+            'Enable two-factor authentication before withdrawing.',
+            success: false);
+        await context.push('/security');
+        return;
+      }
+      final factor = await requestWithdrawalFactor(context, security);
+      if (factor == null || !mounted) return;
       await ref.read(fundingRepositoryProvider).createWithdrawal(
             methodId: selectedId!,
             amount: amount.text.trim(),
-            expectedConversionRate: ref.read(withdrawalMethodsProvider).valueOrNull?.withdrawalBdtPerUsd,
+            expectedConversionRate: ref
+                .read(withdrawalMethodsProvider)
+                .valueOrNull
+                ?.withdrawalBdtPerUsd,
             receiverMobile: receiver.text.trim(),
+            verificationMethod: factor.method,
+            verificationCode: factor.code,
           );
       if (mounted) {
         _notice(

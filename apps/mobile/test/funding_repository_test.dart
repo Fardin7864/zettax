@@ -78,6 +78,8 @@ void main() {
         FundingRepository(client, userId: 'customer', pendingStore: store);
     await expectLater(
         one.createWithdrawal(
+            verificationMethod: 'AUTHENTICATOR',
+            verificationCode: '123456',
             methodId: 'method',
             amount: '100.00',
             receiverMobile: '01885482244'),
@@ -93,6 +95,8 @@ void main() {
         requests[1].headers['Idempotency-Key']);
     expect(requests[0].data, requests[1].data);
     expect((requests[1].data as Map)['receiverMobile'], '+8801885482244');
+    expect((requests[1].data as Map)['verificationMethod'], 'AUTHENTICATOR');
+    expect((requests[1].data as Map)['verificationCode'], '123456');
     expect(await restarted.pending(), isNull);
   });
   test('concurrent submissions cannot overwrite the saved request', () async {
@@ -106,9 +110,15 @@ void main() {
     final repository = FundingRepository(PrimeVestApiClient(
         tokenStore: MemoryTokenStore(), dio: dio, refreshDio: dio));
     final first = repository.createWithdrawal(
-        methodId: 'method', amount: '100.00', receiverMobile: '01885482244');
+        verificationMethod: 'AUTHENTICATOR',
+        verificationCode: '123456',
+        methodId: 'method',
+        amount: '100.00',
+        receiverMobile: '01885482244');
     await expectLater(
         repository.createWithdrawal(
+            verificationMethod: 'AUTHENTICATOR',
+            verificationCode: '123456',
             methodId: 'method',
             amount: '200.00',
             receiverMobile: '01885482244'),

@@ -43,4 +43,16 @@ export class VerificationController {
   async emailCode(@Req() request: AuthenticatedRequest) {
     return { data: await this.verification.sendEmailCode(request.auth.userId) };
   }
+
+  @Post("email/setup")
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  async emailSetup(@Req() request: AuthenticatedRequest) {
+    return { data: await this.verification.sendEmailCode(request.auth.userId, "ENROLLMENT") };
+  }
+
+  @Post("email/confirm")
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async emailConfirm(@Req() request: AuthenticatedRequest, @Body() body: CodeDto) {
+    return { data: await this.verification.confirmEmail(request.auth.userId, body.code) };
+  }
 }

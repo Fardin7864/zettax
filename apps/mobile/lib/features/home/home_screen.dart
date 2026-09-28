@@ -7,6 +7,7 @@ import 'package:primevest_mobile/app/brand_logo.dart';
 import 'package:primevest_mobile/app/design_system.dart';
 import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/features/profile/edit_profile_screen.dart';
+import 'package:primevest_mobile/features/profile/two_factor_widgets.dart';
 import 'package:primevest_mobile/features/community/community_screen.dart';
 import 'package:primevest_mobile/core/account/account_mode_selector.dart';
 import 'package:primevest_mobile/core/account/account_models.dart';
@@ -84,7 +85,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
     return LayoutBuilder(builder: (context, constraints) {
       final wide = kIsWeb && constraints.maxWidth >= 1200;
-      final content = IndexedStack(index: index, children: pages);
+      final content = Column(children: [
+        const TwoFactorPrompt(),
+        Expanded(child: IndexedStack(index: index, children: pages))
+      ]);
       final titles = [
         l10n.home,
         l10n.markets,
@@ -2288,13 +2292,12 @@ class ProfilePage extends ConsumerWidget {
                     Text(currentUser?.profile?.fullName ?? 'Zettax Investor',
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 17)),
-                    const SizedBox(height: 4),
-                    Text(
-                        authenticated
-                            ? 'Server-authenticated account • Bangladesh'
-                            : 'Guest practice account • local only',
-                        style: const TextStyle(
-                            color: PrimeVestDesignSystem.textMuted))
+                    if (!authenticated) ...[
+                      const SizedBox(height: 4),
+                      const Text('Guest practice account • local only',
+                          style: TextStyle(
+                              color: PrimeVestDesignSystem.textMuted)),
+                    ],
                   ])),
               TextButton.icon(
                 icon: const Icon(Icons.edit_outlined, size: 18),
@@ -2322,12 +2325,6 @@ class ProfilePage extends ConsumerWidget {
               subtitle:
                   '${account.transactions.length} virtual balance entries',
               onTap: () => context.push('/transactions')),
-        if (mode == AccountMode.demo && authenticated)
-          const ProfileTile(
-            icon: Icons.receipt_long_outlined,
-            title: 'Server demo transactions',
-            subtitle: 'History view is unavailable in this build',
-          ),
         if (mode == AccountMode.real) ...[
           ProfileTile(
             icon: Icons.add_card,
@@ -2345,7 +2342,7 @@ class ProfilePage extends ConsumerWidget {
         ProfileTile(
             icon: Icons.shield_outlined,
             title: 'Security',
-            subtitle: 'Password and signed-in devices',
+            subtitle: 'Two-factor authentication, password and devices',
             onTap: () => context.push('/security')),
         ProfileTile(
             icon: Icons.translate,
@@ -2364,13 +2361,9 @@ class ProfilePage extends ConsumerWidget {
             onTap: () => context.push('/risk')),
         const SizedBox(height: 18),
         OutlinedButton.icon(
-            onPressed: mode == AccountMode.demo && !authenticated
-                ? () => _confirmReset(context, ref)
-                : null,
+            onPressed: () => _confirmReset(context, ref),
             icon: const Icon(Icons.restart_alt),
-            label: Text(authenticated
-                ? 'Server demo reset unavailable in this build'
-                : 'Reset guest demo account')),
+            label: const Text('Reset demo')),
         if (session.phase == SessionPhase.authenticated) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -2397,7 +2390,7 @@ class ProfilePage extends ConsumerWidget {
         builder: (context) => AlertDialog(
               title: const Text('Reset demo account?'),
               content: const Text(
-                  'This clears all demo positions and restores your virtual balance to \$1,000.00.'),
+                  'Restore your demo balance to its starting amount. Close active demo trades first. Your real balance is not changed.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),
@@ -2407,7 +2400,26 @@ class ProfilePage extends ConsumerWidget {
                     child: const Text('Reset'))
               ],
             ));
-    if (approved == true) ref.read(demoAccountProvider.notifier).reset();
+    if (approved != true) return;
+    try {
+      if (ref.read(sessionProvider).phase == SessionPhase.authenticated) {
+        final result = await ref.read(accountRepositoryProvider).resetDemo(
+            'demo-reset:mobile:${DateTime.now().microsecondsSinceEpoch}');
+        ref.invalidate(accountsProvider);
+        ref.invalidate(positionsProvider);
+        ref.invalidate(timedContractsProvider);
+        showTopNotification('Demo balance reset to \$${result['available']}.');
+      } else {
+        ref.read(demoAccountProvider.notifier).reset();
+        showTopNotification('Demo account reset.');
+      }
+    } catch (error) {
+      showTopNotification(
+          error is ApiFailure
+              ? error.message
+              : 'Could not reset demo. Please retry.',
+          success: false);
+    }
   }
 }
 

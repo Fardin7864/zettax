@@ -7,6 +7,7 @@ import 'package:primevest_mobile/core/account/account_realtime_client.dart';
 import 'package:primevest_mobile/core/api/primevest_api_client.dart';
 import 'package:primevest_mobile/core/auth/auth_models.dart';
 import 'package:primevest_mobile/core/auth/auth_repository.dart';
+import 'package:primevest_mobile/core/auth/verification_repository.dart';
 import 'package:primevest_mobile/core/auth/native_google_sign_in.dart';
 import 'package:primevest_mobile/core/auth/token_store.dart';
 import 'package:primevest_mobile/core/auth/session_signal.dart';
@@ -45,6 +46,16 @@ final nativeGoogleSignInProvider = Provider<NativeGoogleSignIn>(
 final accountRepositoryProvider = Provider<AccountRepository>(
   (ref) => AccountRepository(ref.watch(apiClientProvider)),
 );
+
+final verificationRepositoryProvider = Provider<VerificationRepository>(
+    (ref) => VerificationRepository(ref.watch(apiClientProvider)));
+final verificationStatusProvider =
+    FutureProvider<VerificationStatus?>((ref) async {
+  if (ref.watch(sessionProvider).phase != SessionPhase.authenticated) {
+    return null;
+  }
+  return ref.watch(verificationRepositoryProvider).status();
+});
 
 final accountEventCursorStoreProvider = Provider<AccountEventCursorStore>(
   (ref) => SecureAccountEventCursorStore(

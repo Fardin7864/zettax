@@ -310,6 +310,8 @@ model UserProfile {
 model UserSecurity {
   userId              String    @id @map("user_id") @db.Uuid
   totpEnabled         Boolean   @default(false) @map("totp_enabled")
+  emailEnabled        Boolean   @default(false) @map("email_enabled")
+  emailCodePurpose    String?   @map("email_code_purpose")
   encryptedTotpSecret String?   @map("encrypted_totp_secret")
   pendingTotpSecret   String?   @map("pending_totp_secret")
   lastTotpCounter     BigInt?   @map("last_totp_counter")

@@ -3,8 +3,37 @@ import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/api/primevest_api_client.dart';
 
 class AccountRepository {
-  const AccountRepository(this._client);
+  AccountRepository(this._client);
   final PrimeVestApiClient _client;
+  String? _demoResetKey;
+  bool _resetting = false;
+
+  Future<JsonObject> resetDemo(String idempotencyKey) async {
+    if (_resetting) {
+      throw const ApiFailure(
+          code: 'RESET_BUSY',
+          message: 'Demo reset is already in progress.',
+          requestId: '');
+    }
+    _resetting = true;
+    _demoResetKey ??= idempotencyKey;
+    try {
+      final response = await _client.post(
+          '/accounts/demo/reset', const {}, _object,
+          idempotencyKey: _demoResetKey);
+      _demoResetKey = null;
+      return response.data;
+    } on ApiFailure catch (error) {
+      if (error.statusCode != null &&
+          error.statusCode! >= 400 &&
+          error.statusCode! < 500) {
+        _demoResetKey = null;
+      }
+      rethrow;
+    } finally {
+      _resetting = false;
+    }
+  }
 
   Future<PublicSystemConfig> systemConfig() async {
     final response = await _client.get(

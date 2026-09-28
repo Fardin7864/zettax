@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
+import 'package:primevest_mobile/features/profile/two_factor_widgets.dart';
 
 class SecurityScreen extends ConsumerStatefulWidget {
   const SecurityScreen({super.key});
@@ -26,6 +27,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   }
 
   void refresh() => setState(() {
+        ref.invalidate(verificationStatusProvider);
         sessions = ref.read(authRepositoryProvider).sessions();
       });
 
@@ -172,6 +174,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 await sessions;
               },
               child: ListView(padding: const EdgeInsets.all(20), children: [
+                const TwoFactorSettings(),
                 const Text('Active sessions',
                     style:
                         TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -261,7 +264,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                    'Changing your password signs out other devices. Two-factor authentication is not available yet. Never share your password or sign-in codes.'),
+                    'Changing your password signs out other devices. Never share your password or verification codes.'),
               ]),
             ),
     );

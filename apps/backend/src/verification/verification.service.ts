@@ -115,11 +115,13 @@ export class VerificationService {
       }),
       this.prisma.userSecurity.findUnique({
         where: { userId },
-        select: { totpEnabled: true },
+        select: { totpEnabled: true, emailEnabled: true },
       }),
     ]);
     return {
       authenticatorEnabled: security?.totpEnabled === true,
+      emailEnabled: security?.emailEnabled === true,
+      authenticatorAvailable: /^[0-9a-f]{64}$/i.test(process.env.MFA_ENCRYPTION_KEY || ""),
       email: user?.email ?? null,
       emailAvailable: Boolean(
         process.env.SMTP_HOST &&
@@ -181,11 +183,11 @@ export class VerificationService {
     return { authenticatorEnabled: true };
   }
 
-  async sendEmailCode(userId: string) {
+  async sendEmailCode(userId: string, purpose: "ENROLLMENT" | "WITHDRAWAL" = "WITHDRAWAL") {
     const host = process.env.SMTP_HOST;
     const username = process.env.SMTP_USER;
     const password = process.env.SMTP_PASSWORD;
-    const from = process.env.SMTP_FROM || "noreply@zettax.com";
+    const from = process.env.SMTP_FROM || "noreply@zettax.app";
     if (!host || !username || !password) {
       throw new ApiErrorException(
         "EMAIL_UNAVAILABLE",
@@ -199,8 +201,14 @@ export class VerificationService {
     });
     const prior = await this.prisma.userSecurity.findUnique({
       where: { userId },
-      select: { emailCodeSentAt: true },
+      select: { emailCodeSentAt: true, emailEnabled: true },
     });
+    if (purpose === "WITHDRAWAL" && !prior?.emailEnabled) {
+      throw new ApiErrorException("FACTOR_NOT_ENABLED", "Enable email verification in Account security first.", HttpStatus.FORBIDDEN);
+    }
+    if (purpose === "ENROLLMENT" && prior?.emailEnabled) {
+      throw new ApiErrorException("ALREADY_ENABLED", "Email verification is already enabled.", HttpStatus.CONFLICT);
+    }
     if (
       prior?.emailCodeSentAt &&
       Date.now() - prior.emailCodeSentAt.getTime() < 60_000
@@ -219,12 +227,14 @@ export class VerificationService {
       create: {
         userId,
         emailCodeHash: codeHash,
+        emailCodePurpose: purpose,
         emailCodeExpiresAt: expires,
         emailCodeSentAt: new Date(),
         emailCodeAttempts: 0,
       },
       update: {
         emailCodeHash: codeHash,
+        emailCodePurpose: purpose,
         emailCodeExpiresAt: expires,
         emailCodeSentAt: new Date(),
         emailCodeAttempts: 0,
@@ -235,20 +245,24 @@ export class VerificationService {
       host,
       port,
       secure: port === 465,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
       auth: { user: username, pass: password },
     });
     try {
       await transport.sendMail({
         from,
         to: user.email,
-        subject: "Zettax withdrawal verification code",
-        text: `Your Zettax withdrawal verification code is ${code}. It expires in 5 minutes. If you did not request a withdrawal, ignore this email.`,
+        subject: purpose === "ENROLLMENT" ? "Enable Zettax email two-factor authentication" : "Zettax withdrawal verification code",
+        text: `Your Zettax ${purpose === "ENROLLMENT" ? "email two-factor setup" : "withdrawal verification"} code is ${code}. It expires in 5 minutes. If you did not request this, ignore this email. Never share this code.`,
       });
     } catch {
       await this.prisma.userSecurity.update({
         where: { userId },
         data: {
           emailCodeHash: null,
+          emailCodePurpose: null,
           emailCodeExpiresAt: null,
           emailCodeSentAt: null,
         },
@@ -260,6 +274,37 @@ export class VerificationService {
       );
     }
     return { sent: true, expiresInSeconds: 300 };
+  }
+
+  async confirmEmail(userId: string, code: string) {
+    await this.prisma.$transaction(async (tx) => {
+      await this.consumeEmailCode(tx, userId, code, "ENROLLMENT");
+      await tx.userSecurity.update({ where: { userId }, data: { emailEnabled: true } });
+    });
+    return { emailEnabled: true };
+  }
+
+  private async consumeEmailCode(tx: Prisma.TransactionClient, userId: string, code: string, purpose: "ENROLLMENT" | "WITHDRAWAL") {
+    const security = await tx.userSecurity.findUnique({ where: { userId } });
+    if (!security || security.emailCodePurpose !== purpose ||
+        (purpose === "WITHDRAWAL" && !security.emailEnabled) ||
+        !security.emailCodeHash || !security.emailCodeExpiresAt ||
+        security.emailCodeExpiresAt.getTime() <= Date.now() || security.emailCodeAttempts >= 5) invalidCode();
+    const actual = Buffer.from(this.codeHash(userId, code), "hex");
+    const expected = Buffer.from(security.emailCodeHash, "hex");
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      // Persist failed attempts even when the caller's withdrawal transaction rolls back.
+      await this.prisma.userSecurity.updateMany({
+        where: { userId, emailCodeHash: security.emailCodeHash },
+        data: { emailCodeAttempts: { increment: 1 } },
+      });
+      invalidCode();
+    }
+    const updated = await tx.userSecurity.updateMany({
+      where: { userId, emailCodeHash: security.emailCodeHash, emailCodePurpose: purpose, emailCodeAttempts: { lt: 5 }, emailCodeExpiresAt: { gt: new Date() } },
+      data: { emailCodeHash: null, emailCodePurpose: null, emailCodeExpiresAt: null, emailCodeAttempts: 0 },
+    });
+    if (updated.count !== 1) invalidCode();
   }
 
   async verifyWithdrawal(
@@ -292,34 +337,7 @@ export class VerificationService {
       });
       if (updated.count !== 1) invalidCode();
     } else {
-      if (
-        !security.emailCodeHash ||
-        !security.emailCodeExpiresAt ||
-        security.emailCodeExpiresAt.getTime() < Date.now() ||
-        security.emailCodeAttempts >= 5
-      )
-        invalidCode();
-      const actual = Buffer.from(this.codeHash(userId, code), "hex");
-      const expected = Buffer.from(security.emailCodeHash, "hex");
-      if (
-        actual.length !== expected.length ||
-        !timingSafeEqual(actual, expected)
-      ) {
-        await this.prisma.userSecurity.update({
-          where: { userId },
-          data: { emailCodeAttempts: { increment: 1 } },
-        });
-        invalidCode();
-      }
-      const updated = await tx.userSecurity.updateMany({
-        where: { userId, emailCodeHash: security.emailCodeHash },
-        data: {
-          emailCodeHash: null,
-          emailCodeExpiresAt: null,
-          emailCodeAttempts: 0,
-        },
-      });
-      if (updated.count !== 1) invalidCode();
+      await this.consumeEmailCode(tx, userId, code, "WITHDRAWAL");
     }
   }
 }
