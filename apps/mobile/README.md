@@ -54,6 +54,32 @@ DPAPI-protected password backup together; the password file can only be
 decrypted by the same Windows account on the same machine. Never commit either
 file. See [Play release checklist](../../docs/PLAY_RELEASE.md).
 
+## iOS App Store build
+
+The iOS app uses bundle ID `com.zettax.app` in App Store Connect (Apple ID
+`6818584004`) and the fileadeX LLC Apple team. Xcode needs that team's Apple
+account, distribution certificate, and the `Zettax App Store 2026-10`
+provisioning profile installed on the release Mac. The profile expires on
+December 21, 2026; renew it before later uploads. App Store builds use the
+hosted HTTPS API and skip the Android APK updater. iOS uses email/password
+sign-in; Google sign-in is hidden until an equivalent Apple login option is
+implemented.
+
+```sh
+flutter pub get
+flutter analyze
+flutter test
+flutter build ipa --release --build-name=1.0 --build-number=1 \
+  --export-options-plist=ios/ExportOptions.plist \
+  --dart-define=PRIMEVEST_API_BASE_URL=https://api.zettax.app/api/v1
+```
+
+The signed archive and IPA are produced in `build/ios/archive` and
+`build/ios/ipa`. Increase the iOS build number for every subsequent upload.
+Upload the IPA through Xcode Organizer or Apple's Transporter, then check its
+processing result in App Store Connect. Public release also needs accurate
+metadata, privacy responses, screenshots, review access, and App Review.
+
 ## Market-data backend
 
 Android emulators use `http://10.0.2.2:3000/api/v1` by default. For a physical

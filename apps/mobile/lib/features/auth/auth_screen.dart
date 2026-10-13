@@ -90,7 +90,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     keyboardType: TextInputType.emailAddress,
                     validator: _required,
                   ),
-                  if (!isForgot) ...[
+                  if (!isForgot &&
+                      (kIsWeb ||
+                          defaultTargetPlatform != TargetPlatform.iOS)) ...[
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: password,

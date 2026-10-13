@@ -142,7 +142,8 @@ class PrimeVestApp extends ConsumerWidget {
             ),
           );
         }
-        if (const String.fromEnvironment('ZETTAX_DISTRIBUTION') == 'play') {
+        if (defaultTargetPlatform == TargetPlatform.iOS ||
+            const String.fromEnvironment('ZETTAX_DISTRIBUTION') == 'play') {
           return content;
         }
         return AppUpdateHost(navigatorKey: rootNavigatorKey, child: content);
