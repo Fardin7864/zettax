@@ -70,15 +70,15 @@ export class OutboxPublisherService {
           SELECT id
             FROM outbox_events
            WHERE published_at IS NULL
-             AND next_attempt_at <= CURRENT_TIMESTAMP
-             AND (claimed_at IS NULL OR claimed_at < CURRENT_TIMESTAMP - INTERVAL '2 minutes')
+             AND next_attempt_at <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+             AND (claimed_at IS NULL OR claimed_at < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '2 minutes')
            ORDER BY occurred_at ASC, id ASC
            FOR UPDATE SKIP LOCKED
            LIMIT ${limit}
         )
         UPDATE outbox_events AS event
            SET claim_token = ${claimToken}::uuid,
-               claimed_at = CURRENT_TIMESTAMP,
+               claimed_at = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
                attempts = event.attempts + 1
           FROM candidates
          WHERE event.id = candidates.id

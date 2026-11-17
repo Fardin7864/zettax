@@ -53,6 +53,11 @@ describe("community comment replies", () => {
       prisma as never,
       {} as never,
       gateway as never,
+      {
+        assertRules: async () => {},
+        assertVisiblePost: async () => {},
+        blockedIds: async () => [],
+      } as never,
     );
     return { service, tx, post, parent, gateway };
   }
@@ -75,7 +80,7 @@ describe("community comment replies", () => {
     expect(post.commentCount).toBe(1);
     expect(parent.replyCount).toBe(1);
     expect(tx.communityComment.create).toHaveBeenCalledOnce();
-    expect(gateway.commentCreated).toHaveBeenCalledWith(post.id, result);
+    expect(gateway.commentCreated).toHaveBeenCalledWith(post.id);
   });
 
   it("rejects a reply to a comment on another post", async () => {

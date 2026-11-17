@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -37,7 +38,7 @@ class LanguageScreen extends ConsumerWidget {
     final selected = ref.watch(appLocaleProvider)?.languageCode ??
         Localizations.localeOf(context).languageCode;
     return Scaffold(
-      appBar: AppBar(title: const Text('Language / ভাষা')),
+      appBar: AppBar(title: const TerminalAppTitle('Language / ভাষা')),
       body: ListView(children: [
         const Padding(
           padding: EdgeInsets.all(20),

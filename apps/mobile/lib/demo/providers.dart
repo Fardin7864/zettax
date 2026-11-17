@@ -220,6 +220,9 @@ class DemoAccountController extends StateNotifier<DemoAccountState> {
       int investmentPaisa, Duration duration) {
     final price = ref.read(marketProvider).prices[assetId];
     if (price == null ||
+        !price.isFinite ||
+        price <= 0 ||
+        duration <= Duration.zero ||
         investmentPaisa <= 0 ||
         investmentPaisa > state.availablePaisa) {
       return false;
@@ -234,7 +237,6 @@ class DemoAccountController extends StateNotifier<DemoAccountState> {
       entryPrice: price,
       entryTimestamp: now,
       expiryTimestamp: now.add(duration),
-      payoutRate: .82,
       priceSource: MockPrimeVestApi.providerName,
       entrySequence: market.sequence,
     );
@@ -267,7 +269,8 @@ class DemoAccountController extends StateNotifier<DemoAccountState> {
         return contract;
       }
       final market = ref.read(marketProvider);
-      final price = market.prices[contract.assetId] ?? contract.entryPrice;
+      final price = market.prices[contract.assetId];
+      if (price == null || !price.isFinite || price < 0) return contract;
       final comparison = price.compareTo(contract.entryPrice);
       final result = comparison == 0
           ? ContractResult.draw
@@ -276,11 +279,8 @@ class DemoAccountController extends StateNotifier<DemoAccountState> {
                   : comparison < 0)
               ? ContractResult.win
               : ContractResult.loss;
-      final credit = result == ContractResult.win
-          ? (contract.investmentPaisa * (1 + contract.payoutRate)).round()
-          : result == ContractResult.draw
-              ? contract.investmentPaisa
-              : 0;
+      final credit = proportionalVirtualReturn(contract.investmentPaisa,
+          contract.entryPrice, price, contract.direction);
       available += credit;
       transactions.insert(0,
           _transaction('Timed contract ${result.name.toUpperCase()}', credit));

@@ -25,14 +25,14 @@ export default function AccountDeletion() {
         <p>
           <a
             className="button button-gold"
-            href="mailto:raktobondhu@gmail.com?subject=Delete%20my%20Zettax%20account"
+            href="mailto:fardinhasan18@gmail.com?subject=Delete%20my%20Zettax%20account"
           >
             Email a deletion request
           </a>
         </p>
         <p>
           If the button does not open an email app, send your request to{" "}
-          <a href="mailto:raktobondhu@gmail.com">raktobondhu@gmail.com</a>.
+          <a href="mailto:fardinhasan18@gmail.com">fardinhasan18@gmail.com</a>.
         </p>
         <p>
           We verify ownership before acting. Open trades, pending funding

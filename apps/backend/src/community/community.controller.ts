@@ -80,6 +80,7 @@ export class CommunityController {
   @Get("posts/:id/comments")
   @UseGuards(AccessTokenGuard)
   async comments(
+    @Req() request: AuthenticatedRequest,
     @Param("id", ParseUUIDPipe) id: string,
     @Query("cursor") cursor?: string,
   ) {
@@ -95,7 +96,9 @@ export class CommunityController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return { data: await this.community.comments(id, cursor) };
+    return {
+      data: await this.community.comments(id, cursor, request.auth.userId),
+    };
   }
 
   @Post("posts/:id/comments")
@@ -133,7 +136,7 @@ export class CommunityController {
   ) {
     const bytes = await this.community.image(id);
     response.setHeader("Content-Type", "image/jpeg");
-    response.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    response.setHeader("Cache-Control", "no-store");
     response.send(bytes);
   }
 }

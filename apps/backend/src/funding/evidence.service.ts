@@ -5,7 +5,7 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Client } from "minio";
+import { S3EvidenceStorage } from "./s3-evidence-storage";
 import sharp from "sharp";
 import {
   createCipheriv,
@@ -27,6 +27,7 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EvidenceService.name);
   private cleanupTimer?: NodeJS.Timeout;
   private cleaning = false;
+  private s3Storage?: S3EvidenceStorage;
 
   onModuleInit() {
     void this.deleteExpiredDeposits();
@@ -39,6 +40,7 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    this.s3Storage?.destroy();
   }
 
   async deleteExpiredDeposits() {
@@ -83,13 +85,7 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
     ) {
       return new SupabaseEvidenceStorage(this.config);
     }
-    return new Client({
-      endPoint: this.config.get<string>("MINIO_ENDPOINT", "minio"),
-      port: Number(this.config.get("MINIO_PORT", 9000)),
-      useSSL: this.config.get("MINIO_SSL") === "true",
-      accessKey: this.config.get<string>("MINIO_ACCESS_KEY", ""),
-      secretKey: this.config.get<string>("MINIO_SECRET_KEY", ""),
-    });
+    return (this.s3Storage ??= new S3EvidenceStorage(this.config));
   }
   private bucket() {
     return this.config.get<string>(
@@ -168,7 +164,8 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
         "PROFILE",
         "COMMUNITY",
       ].includes(purpose) ||
-      (ownerType === "USER" && !["DEPOSIT", "KYC", "PROFILE", "COMMUNITY"].includes(purpose))
+      (ownerType === "USER" &&
+        !["DEPOSIT", "KYC", "PROFILE", "COMMUNITY"].includes(purpose))
     )
       throw new ApiErrorException(
         "EVIDENCE_INVALID",
@@ -205,16 +202,21 @@ export class EvidenceService implements OnModuleInit, OnModuleDestroy {
     try {
       if (!["DEPOSIT", "PROFILE"].includes(purpose))
         await this.scan(file.buffer);
-      const prepared = (
+      const prepared =
         purpose === "PROFILE"
           ? image
               .rotate()
               .resize(512, 512, { fit: "cover", withoutEnlargement: true })
           : purpose === "COMMUNITY"
-            ? image.rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-          : image.rotate()
-      );
-      bytes = await (purpose === "COMMUNITY" ? prepared.jpeg({ quality: 82 }) : prepared.png()).toBuffer();
+            ? image
+                .rotate()
+                .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+            : image.rotate();
+      bytes = await (
+        purpose === "COMMUNITY"
+          ? prepared.jpeg({ quality: 82 })
+          : prepared.png()
+      ).toBuffer();
       if (!["DEPOSIT", "PROFILE"].includes(purpose)) await this.scan(bytes);
     } catch {
       throw new ApiErrorException(

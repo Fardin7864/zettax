@@ -42,6 +42,12 @@ class ReviewDto {
 class ChangesController {
   constructor(private readonly prisma: PrismaService) {}
   private require(req: AdminRequest, permission: string) {
+    if (!req.user.stepUpUntil || req.user.stepUpUntil < Date.now())
+      throw new ApiErrorException(
+        "ADMIN_STEP_UP_REQUIRED",
+        "Verify your identity again before managing sensitive changes.",
+        403,
+      );
     if (!req.user.permissions.includes(permission))
       throw new ApiErrorException(
         "ADMIN_PERMISSION_REQUIRED",

@@ -10,10 +10,24 @@ class ApiEnvironment {
         : 'http://10.0.2.2:3000/api/v1',
   );
 
-  static Uri get baseUri {
-    final uri = Uri.parse(baseUrlValue);
-    if (!uri.hasScheme || !uri.hasAuthority) {
-      throw StateError('PRIMEVEST_API_BASE_URL must be an absolute URL');
+  static Uri get baseUri => validate(baseUrlValue, release: kReleaseMode);
+
+  static Uri validate(String value, {required bool release}) {
+    final uri = Uri.tryParse(value);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        !{'https', 'http'}.contains(uri.scheme) ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw StateError('The API address is invalid.');
+    }
+    if (release &&
+        (uri.scheme != 'https' ||
+            uri.host != 'api.zettax.app' ||
+            uri.port != 443 ||
+            uri.path.replaceFirst(RegExp(r'/$'), '') != '/api/v1')) {
+      throw StateError('Release builds must use the Zettax HTTPS API.');
     }
     return uri;
   }

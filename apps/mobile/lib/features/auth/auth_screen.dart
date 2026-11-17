@@ -76,7 +76,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   Text(
                     isForgot
                         ? 'Password recovery is not available yet. No reset message has been sent.'
-                        : 'Sign in securely with Zettax. You can also skip sign-in and use the isolated guest demo.',
+                        : 'Use your Zettax account only. Your email and Zettax password are sent to api.zettax.app to sign in. Never enter your Google, bank or mobile-wallet password here. You can also use the guest demo without signing in.',
                     style: const TextStyle(
                       color: PrimeVestDesignSystem.textMuted,
                       height: 1.45,
@@ -101,7 +101,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ? const [AutofillHints.newPassword]
                           : const [AutofillHints.password],
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: 'Zettax password',
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           onPressed: () => setState(

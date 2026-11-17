@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/api/api_environment.dart';
 import 'package:primevest_mobile/core/auth/auth_models.dart';
@@ -17,6 +18,20 @@ class PrimeVestApiClient {
         _sessionSignal = sessionSignal,
         _dio = dio ?? _configuredDio(),
         _refreshDio = refreshDio ?? _configuredDio() {
+    ApiEnvironment.validate(_dio.options.baseUrl, release: kReleaseMode);
+    ApiEnvironment.validate(_refreshDio.options.baseUrl, release: kReleaseMode);
+    final origin = Uri.parse(_dio.options.baseUrl);
+    final refreshOrigin = Uri.parse(_refreshDio.options.baseUrl);
+    if (origin.scheme != refreshOrigin.scheme ||
+        origin.host != refreshOrigin.host ||
+        origin.port != refreshOrigin.port) {
+      throw StateError('Session refresh must use the same Zettax API origin.');
+    }
+    // A redirect must never forward a password, identity token or request body.
+    _dio.options.followRedirects = false;
+    _dio.options.maxRedirects = 0;
+    _refreshDio.options.followRedirects = false;
+    _refreshDio.options.maxRedirects = 0;
     _dio.interceptors.add(
       InterceptorsWrapper(onRequest: _authorize, onError: _handleError),
     );
@@ -104,6 +119,18 @@ class PrimeVestApiClient {
     Map<String, dynamic>? queryParameters,
     required Options options,
   }) async {
+    final destination = Uri.tryParse(path);
+    if (destination == null ||
+        destination.hasScheme ||
+        destination.hasAuthority ||
+        !path.startsWith('/') ||
+        path.startsWith('//') ||
+        path.contains('\\')) {
+      throw const ApiFailure(
+          code: 'UNTRUSTED_API_DESTINATION',
+          message: 'This request cannot be sent outside Zettax.',
+          requestId: '');
+    }
     try {
       final response = await _dio.request<dynamic>(
         path,
@@ -121,6 +148,17 @@ class PrimeVestApiClient {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    final origin = Uri.parse(_dio.options.baseUrl);
+    final destination = options.uri;
+    if (destination.scheme != origin.scheme ||
+        destination.host != origin.host ||
+        destination.port != origin.port ||
+        destination.userInfo.isNotEmpty) {
+      return handler.reject(DioException(
+          requestOptions: options,
+          error: 'Untrusted API destination',
+          type: DioExceptionType.cancel));
+    }
     if (options.extra['authenticated'] != false) {
       final tokens = await _tokenStore.readTokens();
       if (tokens != null) {
@@ -205,7 +243,8 @@ class PrimeVestApiClient {
         DioExceptionType.sendTimeout ||
         DioExceptionType.receiveTimeout =>
           'The connection timed out. Please try again.',
-        _ => 'Zettax could not be reached. Check your connection and try again.',
+        _ =>
+          'Zettax could not be reached. Check your connection and try again.',
       },
       requestId: '',
       statusCode: error.response?.statusCode,

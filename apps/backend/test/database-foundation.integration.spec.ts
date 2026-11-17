@@ -3,7 +3,9 @@ import {
   LedgerDirection,
   LedgerTransactionType,
   PrismaClient,
+  Prisma,
 } from "@prisma/client";
+import { LedgerService } from "../src/database/ledger.service";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -51,26 +53,22 @@ suite("PostgreSQL financial constraints", () => {
             },
           }),
         ]);
-        const journal = await tx.ledgerTransaction.create({
-          data: {
-            type: LedgerTransactionType.ADJUSTMENT,
-            idempotencyKey: `integration:immutable:${suffix}`,
-            description: "must remain immutable",
-            entries: {
-              create: [
-                {
-                  ledgerAccountId: debit.id,
-                  direction: LedgerDirection.DEBIT,
-                  amount: "1.00",
-                },
-                {
-                  ledgerAccountId: credit.id,
-                  direction: LedgerDirection.CREDIT,
-                  amount: "1.00",
-                },
-              ],
+        const journal = await new LedgerService().post(tx, {
+          type: LedgerTransactionType.ADJUSTMENT,
+          idempotencyKey: `integration:immutable:${suffix}`,
+          description: "must remain immutable",
+          entries: [
+            {
+              ledgerAccountId: debit.id,
+              direction: LedgerDirection.DEBIT,
+              amount: new Prisma.Decimal("1.00"),
             },
-          },
+            {
+              ledgerAccountId: credit.id,
+              direction: LedgerDirection.CREDIT,
+              amount: new Prisma.Decimal("1.00"),
+            },
+          ],
         });
         await tx.ledgerTransaction.update({
           where: { id: journal.id },
@@ -101,26 +99,22 @@ suite("PostgreSQL financial constraints", () => {
           },
         }),
       ]);
-      const journal = await tx.ledgerTransaction.create({
-        data: {
-          type: LedgerTransactionType.ADJUSTMENT,
-          idempotencyKey: `integration:late-entry:${suffix}`,
-          description: "posted journal",
-          entries: {
-            create: [
-              {
-                ledgerAccountId: debit.id,
-                direction: LedgerDirection.DEBIT,
-                amount: "1.00",
-              },
-              {
-                ledgerAccountId: credit.id,
-                direction: LedgerDirection.CREDIT,
-                amount: "1.00",
-              },
-            ],
+      const journal = await new LedgerService().post(tx, {
+        type: LedgerTransactionType.ADJUSTMENT,
+        idempotencyKey: `integration:late-entry:${suffix}`,
+        description: "posted journal",
+        entries: [
+          {
+            ledgerAccountId: debit.id,
+            direction: LedgerDirection.DEBIT,
+            amount: new Prisma.Decimal("1.00"),
           },
-        },
+          {
+            ledgerAccountId: credit.id,
+            direction: LedgerDirection.CREDIT,
+            amount: new Prisma.Decimal("1.00"),
+          },
+        ],
       });
       return { journalId: journal.id, debitId: debit.id, creditId: credit.id };
     });

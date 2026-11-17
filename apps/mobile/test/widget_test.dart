@@ -6,6 +6,7 @@ import 'package:primevest_mobile/core/app_providers.dart';
 import 'package:primevest_mobile/core/auth/auth_models.dart';
 import 'package:primevest_mobile/core/auth/token_store.dart';
 import 'package:primevest_mobile/features/home/home_screen.dart';
+import 'package:primevest_mobile/features/home/figma_home_page.dart';
 import 'package:primevest_mobile/l10n/app_localizations.dart';
 import 'package:primevest_mobile/main.dart';
 
@@ -71,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
-    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Zettax password'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Continue with Google'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('Continue with Google'), findsOneWidget);
@@ -100,10 +101,30 @@ void main() {
         ),
       ),
     );
+    expect(find.byType(FigmaHomeNavigation), findsOneWidget);
+    expect(find.byType(FigmaHomePage), findsOneWidget);
+    tester.widget<FigmaHomePage>(find.byType(FigmaHomePage)).onPortfolio();
+    await tester.pump();
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
-    );
+        tester
+            .widget<FigmaHomeNavigation>(find.byType(FigmaHomeNavigation))
+            .selectedIndex,
+        3);
+    tester
+        .widget<FigmaHomeNavigation>(find.byType(FigmaHomeNavigation))
+        .onSelected(0);
+    await tester.pump();
+    tester.widget<FigmaHomePage>(find.byType(FigmaHomePage)).onProfile();
+    await tester.pump();
+    expect(
+        tester
+            .widget<FigmaHomeNavigation>(find.byType(FigmaHomeNavigation))
+            .selectedIndex,
+        4);
+    tester
+        .widget<FigmaHomeNavigation>(find.byType(FigmaHomeNavigation))
+        .onSelected(0);
+    await tester.pump();
 
     await tester.pumpWidget(
       const ProviderScope(
@@ -116,15 +137,17 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(
+        tester
+            .widget<FigmaHomeNavigation>(find.byType(FigmaHomeNavigation))
+            .selectedIndex,
+        2);
     // The test has no market catalogue, so TradePage is showing its loader.
     // Invoke the back action provided by HomeScreen to test the tab return.
     tester.widget<TradePage>(find.byType(TradePage)).onBack();
     await tester.pump();
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
-    );
+    expect(find.byType(FigmaHomeNavigation), findsOneWidget);
+    expect(find.byType(FigmaHomePage), findsOneWidget);
 
     await tester.pumpWidget(
       const ProviderScope(
@@ -148,7 +171,9 @@ void main() {
     tester.widget<TradePage>(find.byType(TradePage)).onBack();
     await tester.pump();
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      tester
+          .widget<FigmaHomeNavigation>(find.byType(FigmaHomeNavigation))
+          .selectedIndex,
       1,
     );
 

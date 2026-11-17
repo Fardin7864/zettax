@@ -1,7 +1,7 @@
 name: primevest_mobile
 description: Zettax mobile trading application
 publish_to: none
-version: 0.2.8+10
+version: 0.2.15+18
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -35,7 +35,16 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope.ttf
+    - family: DMSans
+      fonts:
+        - asset: assets/fonts/DMSans.ttf
   assets:
+    - assets/fonts/Manrope-OFL.txt
+    - assets/fonts/DMSans-OFL.txt
     - assets/mock/instruments.json
     - assets/branding/zettax_mark.png
     - assets/branding/zettax_wordmark.png

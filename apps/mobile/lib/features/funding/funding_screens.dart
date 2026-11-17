@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,6 +163,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
   String? selectedId;
   XFile? screenshot;
   bool submitting = false;
+  bool consentToZettax = false;
 
   @override
   void dispose() {
@@ -176,7 +178,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-            title: const Text('Deposit'),
+            title: const TerminalAppTitle('Deposit'),
             bottom: const TabBar(
                 tabs: [Tab(text: 'Request'), Tab(text: 'History')])),
         body: TabBarView(children: [
@@ -205,15 +207,19 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        if (!data.submissionsEnabled)
-          _StatusBanner(
-            enabled: data.submissionsEnabled,
-            enabledText: data.virtualFunding
-                ? 'Virtual funding is active. Submit the amount and reference for admin review; no real money is transferred.'
-                : 'Send Money only to the selected number. Your balance changes only after manual verification.',
-            disabledText:
-                'Deposits are not accepting transfers yet. Do not send money until this screen shows Active.',
-          ),
+        _StatusBanner(
+          enabled: data.submissionsEnabled,
+          enabledText: data.virtualFunding
+              ? 'Virtual funding is active. Submit the amount and reference for admin review; no real money is transferred.'
+              : 'Send Money only to the selected number. Your balance changes only after manual verification.',
+          disabledText:
+              'Deposits are not accepting transfers yet. Do not send money until this screen shows Active.',
+        ),
+        const SizedBox(height: 12),
+        FundingDataDisclosure(
+            virtual: data.virtualFunding,
+            consented: consentToZettax,
+            onChanged: (value) => setState(() => consentToZettax = value)),
         const SizedBox(height: 20),
         const _Title('1. Choose payment service'),
         const SizedBox(height: 10),
@@ -223,7 +229,11 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
           onSelected: (id) => setState(() => selectedId = id),
         ),
         const SizedBox(height: 16),
-        _ReceivingCard(method: selected, reveal: data.submissionsEnabled),
+        if (data.virtualFunding)
+          const Text(
+              'Practice mode: do not transfer money. Use fictional numbers and references; do not attach a real payment receipt.')
+        else
+          _ReceivingCard(method: selected, reveal: data.submissionsEnabled),
         const SizedBox(height: 22),
         const _Title('2. Enter transfer details'),
         Text(
@@ -251,8 +261,10 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
           controller: sender,
           enabled: data.submissionsEnabled,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-            labelText: 'Your sending number',
+          decoration: InputDecoration(
+            labelText: data.virtualFunding
+                ? 'Fictional practice number'
+                : 'Your sending number',
             hintText: '01XXXXXXXXX',
           ),
         ),
@@ -261,9 +273,12 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
           controller: transactionId,
           enabled: data.submissionsEnabled,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Transaction ID',
-            hintText: 'Enter exactly as shown in the receipt',
+          decoration: InputDecoration(
+            labelText:
+                data.virtualFunding ? 'Practice reference' : 'Transaction ID',
+            hintText: data.virtualFunding
+                ? 'Use a fictional reference'
+                : 'Enter exactly as shown in the receipt',
           ),
         ),
         const SizedBox(height: 12),
@@ -272,7 +287,9 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
             onPressed: data.submissionsEnabled ? _pickScreenshot : null,
             icon: const Icon(Icons.add_photo_alternate_outlined),
             label: Text(screenshot == null
-                ? 'Attach screenshot (optional)'
+                ? data.virtualFunding
+                    ? 'Attach practice image (optional)'
+                    : 'Attach screenshot (optional)'
                 : screenshot!.name),
           ),
           const SizedBox(height: 16),
@@ -281,12 +298,15 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
           const SizedBox(height: 12),
         ],
         FilledButton.icon(
-          onPressed:
-              data.submissionsEnabled && !submitting ? _submitCashIn : null,
+          onPressed: data.submissionsEnabled && !submitting && consentToZettax
+              ? _submitCashIn
+              : null,
           icon: const Icon(Icons.upload_file),
           label: Text(submitting
               ? 'Uploading and submitting…'
-              : 'Submit for verification'),
+              : data.virtualFunding
+                  ? 'Submit practice request'
+                  : 'Submit for verification'),
         ),
         const SizedBox(height: 10),
         Text(
@@ -314,6 +334,7 @@ class _CashInScreenState extends ConsumerState<CashInScreen> {
   }
 
   Future<void> _submitCashIn() async {
+    if (!consentToZettax) return;
     final repository = ref.read(fundingRepositoryProvider);
     if (await repository.pending() != null) {
       if (!mounted) return;
@@ -384,6 +405,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   JsonObject? verificationOptions;
   bool verificationLoading = true;
   bool submitting = false;
+  bool consentToZettax = false;
 
   @override
   void initState() {
@@ -424,7 +446,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-            title: const Text('Withdraw'),
+            title: const TerminalAppTitle('Withdraw'),
             bottom: const TabBar(
                 tabs: [Tab(text: 'Request'), Tab(text: 'History')])),
         body: TabBarView(children: [
@@ -456,15 +478,19 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       children: [
         const _FundingWalletBalances(),
         const SizedBox(height: 16),
-        if (!data.submissionsEnabled)
-          _StatusBanner(
-            enabled: data.submissionsEnabled,
-            enabledText: data.virtualFunding
-                ? 'Your requested amount is immediately deducted from available balance and locked until review. No real payment is sent.'
-                : 'Withdrawals are reviewed manually. Funds are locked when your request is accepted.',
-            disabledText:
-                'Withdrawals are not accepting requests yet. Your REAL balance remains unchanged.',
-          ),
+        _StatusBanner(
+          enabled: data.submissionsEnabled,
+          enabledText: data.virtualFunding
+              ? 'Your requested amount is immediately deducted from available balance and locked until review. No real payment is sent.'
+              : 'Withdrawals are reviewed manually. Funds are locked when your request is accepted.',
+          disabledText:
+              'Withdrawals are not accepting requests yet. Your REAL balance remains unchanged.',
+        ),
+        const SizedBox(height: 12),
+        FundingDataDisclosure(
+            virtual: data.virtualFunding,
+            consented: consentToZettax,
+            onChanged: (value) => setState(() => consentToZettax = value)),
         const SizedBox(height: 20),
         const _Title('Choose receiving service'),
         const SizedBox(height: 10),
@@ -475,7 +501,9 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         ),
         const SizedBox(height: 18),
         Text(
-            'Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
+            data.virtualFunding
+                ? 'Virtual conversion: \$1.00 = ৳${data.withdrawalBdtPerUsd}. This request does not send a real payment.'
+                : 'Withdrawal rate: \$1.00 = ৳${data.withdrawalBdtPerUsd}. Your USD balance is locked now; the BDT payout is fixed when you submit.',
             style: const TextStyle(color: PrimeVestDesignSystem.textMuted)),
         if ((double.tryParse(amount.text) ?? 0) > 0)
           Text(
@@ -496,8 +524,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           controller: receiver,
           enabled: enabled,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-            labelText: 'Your receiving number',
+          decoration: InputDecoration(
+            labelText: data.virtualFunding
+                ? 'Fictional practice number'
+                : 'Your receiving number',
             hintText: '01XXXXXXXXX',
           ),
         ),
@@ -526,10 +556,11 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             items: [
               if (authenticatorAvailable)
                 const DropdownMenuItem(
-                    value: 'AUTHENTICATOR', child: Text('Authenticator app')),
+                    value: 'AUTHENTICATOR',
+                    child: Text('Zettax authenticator')),
               if (emailAvailable)
                 const DropdownMenuItem(
-                    value: 'EMAIL', child: Text('Email code')),
+                    value: 'EMAIL', child: Text('Zettax email code')),
             ],
             onChanged: enabled
                 ? (value) => setState(() => verificationMethod = value!)
@@ -560,13 +591,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             enabled: enabled,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration:
-                const InputDecoration(labelText: 'Six-digit verification code'),
+            decoration: const InputDecoration(
+                labelText: 'Zettax verification code',
+                helperText:
+                    'Use the code for your Zettax account only. Never enter a payment-service PIN or OTP.'),
           ),
         ],
         const SizedBox(height: 18),
         FilledButton.icon(
-          onPressed: enabled && canVerify ? _submit : null,
+          onPressed: enabled && canVerify && consentToZettax ? _submit : null,
           icon: submitting
               ? const SizedBox.square(
                   dimension: 18,
@@ -592,6 +625,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   }
 
   Future<void> _submit() async {
+    if (!consentToZettax) return;
     if (await ref.read(fundingRepositoryProvider).pending() != null) {
       if (!mounted) return;
       await _recoverFunding(context, ref);
@@ -785,6 +819,41 @@ class _ReceivingCard extends StatelessWidget {
             ]),
     );
   }
+}
+
+class FundingDataDisclosure extends StatelessWidget {
+  const FundingDataDisclosure(
+      {super.key,
+      required this.consented,
+      required this.onChanged,
+      this.virtual = false});
+  final bool consented;
+  final bool virtual;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Zettax request form',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(
+              virtual
+                  ? 'This practice form sends fictional request details and any practice image to Zettax at api.zettax.app. Do not submit real wallet numbers, transaction references or payment receipts. It is not a bKash, Nagad or Rocket sign-in page. Never enter a payment-service password, PIN or OTP.'
+                  : 'This form sends the request details you enter, such as the amount and wallet number and any requested reference or receipt, to Zettax at api.zettax.app for review. It is not a bKash, Nagad or Rocket sign-in page. Never enter a payment-service password, PIN or OTP.',
+              style: TextStyle(
+                  color: PrimeVestDesignSystem.textMuted, height: 1.4)),
+          CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: consented,
+              onChanged: (value) => onChanged(value ?? false),
+              title: const Text(
+                  'I agree to send these request details to Zettax.',
+                  style: TextStyle(fontSize: 13))),
+        ],
+      );
 }
 
 class _StatusBanner extends StatelessWidget {

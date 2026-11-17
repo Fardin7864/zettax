@@ -86,8 +86,8 @@ export default function Privacy() {
         <h2>Contact</h2>
         <p>
           Privacy questions:{" "}
-          <a href="mailto:raktobondhu@gmail.com?subject=Zettax%20privacy%20request">
-            raktobondhu@gmail.com
+          <a href="mailto:fardinhasan18@gmail.com?subject=Zettax%20privacy%20request">
+            fardinhasan18@gmail.com
           </a>
           .
         </p>

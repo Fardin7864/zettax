@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
@@ -146,7 +147,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Edit profile')),
+        appBar: AppBar(title: const TerminalAppTitle('Edit profile')),
         body: Form(
             key: form,
             child: ListView(padding: const EdgeInsets.all(20), children: [

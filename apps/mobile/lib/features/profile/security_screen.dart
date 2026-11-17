@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -136,22 +137,26 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     final values = await showDialog<({String current, String next})>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Change password'),
+        title: const Text('Change Zettax password'),
         content: Form(
           key: form,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text(
+                  'These fields change your Zettax password at api.zettax.app. Never enter your Google, bank or mobile-wallet password.'),
+              const SizedBox(height: 12),
               TextFormField(
                   controller: current,
                   obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Current password'),
+                  decoration: const InputDecoration(
+                      labelText: 'Current Zettax password'),
                   validator: (value) =>
                       value == null || value.isEmpty ? 'Required' : null),
               TextFormField(
                   controller: next,
                   obscureText: true,
-                  decoration: const InputDecoration(labelText: 'New password'),
+                  decoration:
+                      const InputDecoration(labelText: 'New Zettax password'),
                   validator: (value) => value != null &&
                           value.length >= 12 &&
                           RegExp(r'[a-z]').hasMatch(value) &&
@@ -163,8 +168,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
               TextFormField(
                   controller: confirm,
                   obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirm new password'),
+                  decoration: const InputDecoration(
+                      labelText: 'Confirm new Zettax password'),
                   validator: (value) =>
                       value == next.text ? null : 'Passwords do not match'),
             ]),
@@ -181,7 +186,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                     context, (current: current.text, next: next.text));
               }
             },
-            child: const Text('Change'),
+            child: const Text('Update Zettax password'),
           ),
         ],
       ),
@@ -210,7 +215,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     final authenticated =
         ref.watch(sessionProvider).phase == SessionPhase.authenticated;
     return Scaffold(
-      appBar: AppBar(title: const Text('Account security')),
+      appBar: AppBar(title: const TerminalAppTitle('Zettax account security')),
       body: !authenticated
           ? Center(
               child: FilledButton(
@@ -229,7 +234,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                         TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 const Text(
-                    'Every withdrawal requires a fresh six-digit code. An authenticator app is recommended; email codes are available when email delivery is configured.'),
+                    'Every withdrawal requires a fresh Zettax verification code. Use only the Zettax entry in your authenticator or the code from a Zettax withdrawal email. Never enter a Google sign-in, bank or mobile-wallet code. These codes are sent to api.zettax.app to verify your Zettax request.'),
                 const SizedBox(height: 10),
                 FutureBuilder<JsonObject>(
                   future: verification,
@@ -265,7 +270,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                           ),
                           if (pendingSecret != null) ...[
                             const Text(
-                                'Add a new account in your authenticator app and enter this setup key:'),
+                                'Add a new entry named Zettax in your authenticator app using this setup key. Enter only the code generated for that new Zettax entry:'),
                             const SizedBox(height: 8),
                             SelectableText(pendingSecret!,
                                 style: const TextStyle(
@@ -277,7 +282,7 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
                                 keyboardType: TextInputType.number,
                                 maxLength: 6,
                                 decoration: const InputDecoration(
-                                    labelText: 'Six-digit code')),
+                                    labelText: 'Zettax setup code')),
                             FilledButton(
                                 onPressed: busy ? null : confirmAuthenticator,
                                 child: const Text('Enable authenticator')),

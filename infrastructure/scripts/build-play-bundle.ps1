@@ -39,7 +39,7 @@ if ($CreateUploadKey) {
 }
 
 if (-not (Test-Path $keyPath) -or -not (Test-Path $passwordPath)) {
-  throw 'The upload key is missing. Run this script once with -CreateUploadKey.'
+  throw 'The Play upload key is missing. Restore the original key and protected password from backup, or complete an authorized Play upload-key reset. Do not use -CreateUploadKey to replace an existing app key; that switch is for an explicitly authorized initial setup only.'
 }
 
 $protected = [System.IO.File]::ReadAllText($passwordPath)
@@ -63,4 +63,6 @@ try {
 }
 $bundle = Join-Path $mobileDir 'build\app\outputs\bundle\playRelease\app-play-release.aab'
 if (-not (Test-Path $bundle)) { throw "Missing expected App Bundle: $bundle" }
+& python (Join-Path $PSScriptRoot 'verify-play-artifact.py') $bundle --native-libs (Join-Path $mobileDir 'build\app\intermediates\flutter\playRelease\jniLibs')
+if ($LASTEXITCODE -ne 0) { throw 'Play artifact contains an APK update/install mechanism or could not be checked.' }
 Write-Host "Play App Bundle: $bundle"

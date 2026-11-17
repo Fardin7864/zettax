@@ -1,7 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { Client } from "minio";
+import { S3EvidenceStorage } from "../src/funding/s3-evidence-storage";
 import { afterAll, describe, it, expect } from "vitest";
 import { EvidenceService } from "../src/funding/evidence.service";
 import { PrismaService } from "../src/database/prisma.service";
@@ -32,13 +32,7 @@ suite("real ClamAV and encrypted MinIO evidence integration", () => {
     expect(result.status).toBe("CLEAN");
     const read = await service.read(result.id);
     expect((await sharp(read).metadata()).format).toBe("png");
-    const storage = new Client({
-      endPoint: config.get<string>("MINIO_ENDPOINT")!,
-      port: 9000,
-      useSSL: false,
-      accessKey: config.get<string>("MINIO_ACCESS_KEY")!,
-      secretKey: config.get<string>("MINIO_SECRET_KEY")!,
-    });
+    const storage = new S3EvidenceStorage(config);
     const stream = await storage.getObject(
         "primevest-evidence-verification",
         result.objectKey,
@@ -49,11 +43,14 @@ suite("real ClamAV and encrypted MinIO evidence integration", () => {
     const encrypted = Buffer.concat(chunks);
     expect(encrypted.subarray(0, 4).toString()).toBe("PVE1");
     expect(encrypted.equals(read)).toBe(false);
-    const anonymous = new Client({
-      endPoint: config.get<string>("MINIO_ENDPOINT")!,
-      port: 9000,
-      useSSL: false,
-    });
+    const anonymous = new S3EvidenceStorage(
+      new ConfigService({
+        MINIO_ENDPOINT: config.get<string>("MINIO_ENDPOINT"),
+        MINIO_PORT: "9000",
+        MINIO_ACCESS_KEY: "invalid",
+        MINIO_SECRET_KEY: "invalid",
+      }),
+    );
     await expect(
       anonymous.getObject("primevest-evidence-verification", result.objectKey),
     ).rejects.toThrow();

@@ -68,7 +68,7 @@ flutter test
 flutter build apk --release
 ```
 
-The Android package ID is `com.primevest.app`. The current release configuration uses a development signature for direct demo installation; store delivery requires a protected production signing key and Play release configuration.
+The Android package ID is `com.zettax.app`. The current release configuration uses a development signature for direct demo installation; store delivery requires a protected production signing key and Play release configuration.
 
 ## Architecture and delivery references
 

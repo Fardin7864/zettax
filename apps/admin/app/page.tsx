@@ -51,6 +51,7 @@ const areas = [
   "markets",
   "ledger",
   "risk",
+  "community",
   "audit",
   "admins",
   "roles",
@@ -382,20 +383,25 @@ export default function Operations() {
     setBusy(true);
     setMessage("");
     try {
-      const path = [
-        "overview",
-        "deposits",
-        "withdrawals",
-        "payment-methods",
-        "currency-conversion",
-        "treasury",
-        "release",
-        "changes",
-      ].includes(area)
-        ? area === "currency-conversion" ? "/admin/conversion-rates" : `/admin/${area}`
-        : area === "trading"
-          ? "/admin/trading-settings"
-          : `/admin/records/${area}?page=${page}&search=${encodeURIComponent(search)}`;
+      const path =
+        area === "community"
+          ? "/admin/community/reports"
+          : [
+                "overview",
+                "deposits",
+                "withdrawals",
+                "payment-methods",
+                "currency-conversion",
+                "treasury",
+                "release",
+                "changes",
+              ].includes(area)
+            ? area === "currency-conversion"
+              ? "/admin/conversion-rates"
+              : `/admin/${area}`
+            : area === "trading"
+              ? "/admin/trading-settings"
+              : `/admin/records/${area}?page=${page}&search=${encodeURIComponent(search)}`;
       const [result, dashboard] = await Promise.all([
         request(
           ["deposits", "withdrawals"].includes(area)
@@ -411,7 +417,11 @@ export default function Operations() {
       ]);
       if (version === listVersion.current) {
         setData(result);
-        if (area === "currency-conversion" && !Array.isArray(result) && result) {
+        if (
+          area === "currency-conversion" &&
+          !Array.isArray(result) &&
+          result
+        ) {
           setDepositRate(str(result.depositBdtPerUsd));
           setWithdrawalRate(str(result.withdrawalBdtPerUsd));
         }
@@ -1021,31 +1031,61 @@ export default function Operations() {
         {area === "currency-conversion" && data && !Array.isArray(data) && (
           <section className="panel">
             <h2>Customer wallet conversion</h2>
-            <p>Customer balances and trades are in USD. Payment requests remain in BDT. Each submitted request retains the rate in effect when it was created; changing these rates affects new requests only.</p>
-            <form onSubmit={async (event) => {
-              event.preventDefault();
-              setBusy(true);
-              setMessage("");
-              try {
-                await request("/admin/conversion-rates", "POST", {
-                  depositBdtPerUsd: depositRate,
-                  withdrawalBdtPerUsd: withdrawalRate,
-                });
-                await load();
-                setMessage("Conversion rates saved for new requests.");
-              } catch (error) {
-                setMessage(error instanceof Error ? error.message : "Could not save rates.");
-              } finally {
-                setBusy(false);
-              }
-            }}>
-              <label>Deposit: BDT paid for $1 USD
-                <input type="number" min="1" max="9999" step="0.0001" required value={depositRate} onChange={(event) => setDepositRate(event.target.value)} />
+            <p>
+              Customer balances and trades are in USD. Payment requests remain
+              in BDT. Each submitted request retains the rate in effect when it
+              was created; changing these rates affects new requests only.
+            </p>
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setBusy(true);
+                setMessage("");
+                try {
+                  await request("/admin/conversion-rates", "POST", {
+                    depositBdtPerUsd: depositRate,
+                    withdrawalBdtPerUsd: withdrawalRate,
+                  });
+                  await load();
+                  setMessage("Conversion rates saved for new requests.");
+                } catch (error) {
+                  setMessage(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not save rates.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                Deposit: BDT paid for $1 USD
+                <input
+                  type="number"
+                  min="1"
+                  max="9999"
+                  step="0.0001"
+                  required
+                  value={depositRate}
+                  onChange={(event) => setDepositRate(event.target.value)}
+                />
               </label>
-              <label>Withdrawal: BDT paid out for $1 USD
-                <input type="number" min="1" max="9999" step="0.0001" required value={withdrawalRate} onChange={(event) => setWithdrawalRate(event.target.value)} />
+              <label>
+                Withdrawal: BDT paid out for $1 USD
+                <input
+                  type="number"
+                  min="1"
+                  max="9999"
+                  step="0.0001"
+                  required
+                  value={withdrawalRate}
+                  onChange={(event) => setWithdrawalRate(event.target.value)}
+                />
               </label>
-              <button className="primary" type="submit" disabled={busy}>Save conversion rates</button>
+              <button className="primary" type="submit" disabled={busy}>
+                Save conversion rates
+              </button>
             </form>
           </section>
         )}
@@ -1514,6 +1554,38 @@ export default function Operations() {
                   >
                     Review proposed change
                   </button>
+                )}
+                {area === "community" && selected.status === "OPEN" && (
+                  <>
+                    {typeof selected.imagePath === "string" && (
+                      <p>
+                        <a
+                          href={`${api}${selected.imagePath}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View the reported image
+                        </a>
+                      </p>
+                    )}
+                    <button
+                      onClick={() =>
+                        setAction({
+                          title: "Review community report",
+                          path: `/admin/community/reports/${str(selected.id)}/resolve`,
+                          fields: [
+                            {
+                              key: "action",
+                              options: ["HIDE", "DISMISS"],
+                              value: "HIDE",
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      Review content and resolve report
+                    </button>
+                  </>
                 )}
                 {area === "users" && (
                   <button

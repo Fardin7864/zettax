@@ -3,7 +3,7 @@ import 'package:primevest_mobile/core/api/api_contract.dart';
 import 'package:primevest_mobile/core/api/api_environment.dart';
 import 'package:primevest_mobile/demo/models.dart';
 
-const primeVestApiBaseUrl = ApiEnvironment.baseUrlValue;
+final primeVestApiBaseUrl = ApiEnvironment.baseUri.toString();
 
 class MarketCandle {
   const MarketCandle({

@@ -37,14 +37,13 @@ flutter test
 flutter build apk --release --flavor direct
 ```
 
-The package ID is `com.primevest.app`. Android has separate `direct` and `play`
-distribution flavors. The direct APK keeps its historical certificate so existing
-website-installed copies can update in place; the Play App Bundle uses a private
-upload key and Play App Signing. Those two distribution channels do not share a
-device-installation certificate, so a website-installed copy may need to be
-uninstalled before its first Play installation (after backing up any local-only
-demo data). The Play build excludes the APK installer and lets Google Play
-deliver updates.
+The package ID is `com.zettax.app` for both the `direct` and `play` flavors.
+Android installs builds with this ID separately from existing
+`com.primevest.app` copies. The direct APK uses the workstation debug key.
+The Play App Bundle uses a private upload key and Play App Signing, and
+receives updates through Google Play. The two channels use different
+installation certificates, so switching channels for the same package ID
+may require reinstalling the app.
 
 Build the direct APK with `flutter build apk --release --flavor direct`. Build
 the Play App Bundle with `infrastructure/scripts/build-play-bundle.ps1` from

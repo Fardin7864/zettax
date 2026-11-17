@@ -1,20 +1,32 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:primevest_mobile/features/shared/ohlc_chart.dart';
 import 'package:primevest_mobile/market/market_data_api.dart';
 
 /// Live OHLC presentation backed by the existing market and trade data.
-class LiveTradeChart extends StatelessWidget {
+class LiveTradeChart extends StatefulWidget {
   const LiveTradeChart({
     super.key,
     required this.series,
     required this.precision,
     this.markers = const [],
+    this.showTools = false,
   });
 
   final MarketCandleSeries series;
   final int precision;
   final List<ChartTradeMarker> markers;
+  final bool showTools;
+  @override
+  State<LiveTradeChart> createState() => _LiveTradeChartState();
+}
+
+class _LiveTradeChartState extends State<LiveTradeChart> {
+  bool lineMode = false;
+  MarketCandleSeries get series => widget.series;
+  int get precision => widget.precision;
+  List<ChartTradeMarker> get markers => widget.markers;
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +52,56 @@ class LiveTradeChart extends StatelessWidget {
     ];
     return RepaintBoundary(
       child: Column(children: [
+        if (widget.showTools)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(children: [
+                Expanded(
+                    child: TextButton.icon(
+                        onPressed: () =>
+                            terminalSheet(context, 'Technical indicators', [
+                              const Text(
+                                  'Moving averages use observed closing prices. A value is unavailable until enough bars are loaded.',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: TerminalDesign.muted)),
+                              for (final period in [7, 25, 99])
+                                ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text('MA($period)'),
+                                    trailing: Text(
+                                        candleAverage(
+                                                    chartCandles,
+                                                    chartCandles.length - 1,
+                                                    period)
+                                                ?.toStringAsFixed(precision) ??
+                                            '—',
+                                        style: const TextStyle(
+                                            color: TerminalDesign.gold))),
+                              const Text(
+                                  'Volume and its averages appear when the data provider supplies volume.',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: TerminalDesign.muted)),
+                            ]),
+                        icon: const Icon(Icons.tune, size: 16),
+                        label: const Text('Indicators',
+                            style: TextStyle(fontSize: 11)))),
+                IconButton(
+                    tooltip: 'Candlestick chart',
+                    isSelected: !lineMode,
+                    onPressed: () => setState(() => lineMode = false),
+                    icon:
+                        const Icon(Icons.candlestick_chart_outlined, size: 19)),
+                IconButton(
+                    tooltip: 'Line chart',
+                    isSelected: lineMode,
+                    onPressed: () => setState(() => lineMode = true),
+                    icon: const Icon(Icons.show_chart, size: 19)),
+              ])),
         SizedBox(
-          height: 20,
+          height:
+              20 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
@@ -65,9 +125,11 @@ class LiveTradeChart extends StatelessWidget {
           candles: chartCandles,
           precision: precision,
           tradeMarkers: markers,
+          lineMode: lineMode,
         )),
         SizedBox(
-          height: 22,
+          height:
+              22 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 6),

@@ -94,6 +94,8 @@ class MarketPerformanceStrip extends StatelessWidget {
       const Padding(
         padding: EdgeInsets.only(left: 6, bottom: 2),
         child: Text('Observed 1m/15m bars · UTC daily change',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 9, color: Color(0xFFAAA7A2))),
       ),
       Expanded(

@@ -114,7 +114,7 @@ export function Footer() {
           <strong>Legal</strong>
           <Link href="/privacy.html">Privacy policy</Link>
           <Link href="/account-deletion.html">Account deletion</Link>
-          <a href="mailto:raktobondhu@gmail.com">Contact</a>
+          <a href="mailto:fardinhasan18@gmail.com">Contact</a>
         </div>
       </div>
       <div className="container footer-bottom">

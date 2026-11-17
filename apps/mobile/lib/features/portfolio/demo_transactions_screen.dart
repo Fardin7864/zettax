@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:primevest_mobile/app/design_system.dart';
@@ -12,7 +13,7 @@ class DemoTransactionsScreen extends ConsumerWidget {
     final transactions = ref.watch(demoAccountProvider).transactions;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Demo transactions'),
+        title: const TerminalAppTitle('Demo transactions'),
         actions: const [DemoBadge(), SizedBox(width: 12)],
       ),
       body: transactions.isEmpty

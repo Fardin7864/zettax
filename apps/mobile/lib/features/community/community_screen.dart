@@ -1,4 +1,6 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'dart:typed_data';
+import 'package:primevest_mobile/features/community/community_safety.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +22,10 @@ Map<String, dynamic> _map(dynamic value) =>
     Map<String, dynamic>.from(value as Map);
 
 class CommunityScreen extends ConsumerStatefulWidget {
-  const CommunityScreen({super.key});
+  const CommunityScreen({super.key, this.connectRealtime = true});
+
+  /// Production routes retain realtime; host tests can supply a deterministic feed.
+  final bool connectRealtime;
   @override
   ConsumerState<CommunityScreen> createState() => _CommunityScreenState();
 }
@@ -29,6 +34,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   final posts = <Map<String, dynamic>>[];
   io.Socket? socket;
   String? cursor;
+  int loadGeneration = 0;
   bool loading = true;
   bool loadingMore = false;
   String? error;
@@ -37,6 +43,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   void initState() {
     super.initState();
     _load();
+    if (!widget.connectRealtime) return;
     final endpoint = ApiEnvironment.baseUri
         .replace(path: '/community', query: null, fragment: null);
     socket = io.io(
@@ -50,6 +57,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             .build()
           ..addAll({'forceNew': true, 'multiplex': false}));
     socket!.on('community:created', (_) => _load());
+    socket!.on('community:moderated', (_) => _load(invalidate: true));
     socket!.on('community:changed', (dynamic event) {
       if (!mounted || event is! Map) return;
       final id = event['id']?.toString();
@@ -75,8 +83,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     super.dispose();
   }
 
-  Future<void> _load({bool more = false}) async {
+  Future<void> _load({bool more = false, bool invalidate = false}) async {
     if (more && (loadingMore || cursor == null)) return;
+    final generation = ++loadGeneration;
+    if (invalidate && mounted) {
+      setState(() {
+        posts.clear();
+        cursor = null;
+        loadingMore = false;
+      });
+    }
     if (!more && mounted) {
       setState(() {
         loading = posts.isEmpty;
@@ -88,7 +104,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       final response = await ref.read(apiClientProvider).get(
           '/community/posts', _map,
           queryParameters: more ? {'cursor': cursor} : null);
-      if (!mounted) return;
+      if (!mounted || generation != loadGeneration) return;
       final data = response.data;
       setState(() {
         if (!more) posts.clear();
@@ -98,7 +114,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         loadingMore = false;
       });
     } catch (failure) {
-      if (!mounted) return;
+      if (!mounted || generation != loadGeneration) return;
       setState(() {
         error = failure is ApiFailure
             ? failure.message
@@ -148,12 +164,27 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     }
   }
 
+  Future<void> _compose() async {
+    final created = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const _ComposePostScreen()));
+    if (created == true && mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authenticated =
         ref.watch(sessionProvider).phase == SessionPhase.authenticated;
     return Scaffold(
-      appBar: AppBar(title: const Text('Community'), actions: [
+      appBar: AppBar(title: const TerminalAppTitle('Community'), actions: [
+        if (authenticated)
+          IconButton(
+              tooltip: 'Blocked users',
+              icon: const Icon(Icons.person_off_outlined),
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const CommunityBlockedUsersScreen()));
+                if (mounted) _load();
+              }),
         if (authenticated)
           IconButton(
             tooltip: 'Create post',
@@ -189,10 +220,68 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                               onPressed: _load, child: const Text('Retry'))
                         ])
                       : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
                           itemCount: posts.length +
+                              1 +
                               (cursor != null || posts.isEmpty ? 1 : 0),
                           itemBuilder: (context, index) {
+                            if (index == 0) {
+                              return Padding(
+                                  padding: const EdgeInsets.only(bottom: 15),
+                                  child: TerminalPanel(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const TerminalEyebrow(
+                                                'COMMUNITY PULSE'),
+                                            const SizedBox(height: 10),
+                                            InkWell(
+                                                onTap: _compose,
+                                                borderRadius:
+                                                    BorderRadius.circular(9),
+                                                child: Container(
+                                                    width: double.infinity,
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            14),
+                                                    decoration: BoxDecoration(
+                                                        border: Border.all(
+                                                            color: TerminalDesign
+                                                                .edge),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(9)),
+                                                    child: const Text(
+                                                        'Share a market idea…',
+                                                        style: TextStyle(
+                                                            color: TerminalDesign
+                                                                .muted,
+                                                            fontSize: 12)))),
+                                            const SizedBox(height: 10),
+                                            Row(children: [
+                                              const Icon(Icons.image_outlined,
+                                                  color: TerminalDesign.gold,
+                                                  size: 18),
+                                              const SizedBox(width: 8),
+                                              const Expanded(
+                                                  child: Text(
+                                                      'Text, images and conversation',
+                                                      style: TextStyle(
+                                                          color: TerminalDesign
+                                                              .muted,
+                                                          fontSize: 10))),
+                                              FilledButton(
+                                                  style: FilledButton.styleFrom(
+                                                      minimumSize:
+                                                          const Size(0, 44)),
+                                                  onPressed: _compose,
+                                                  child: const Text('Post'))
+                                            ])
+                                          ])));
+                            }
+                            index -= 1;
                             if (index == posts.length) {
                               if (posts.isEmpty) {
                                 return const Padding(
@@ -221,9 +310,28 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Row(children: [
-                                          const CircleAvatar(
-                                              child:
-                                                  Icon(Icons.person_outline)),
+                                          CircleAvatar(
+                                              radius: 18,
+                                              backgroundColor: TerminalDesign
+                                                  .gold
+                                                  .withValues(alpha: .12),
+                                              child: Text(
+                                                  (post['author']
+                                                              ?.toString()
+                                                              .trim()
+                                                              .isNotEmpty ??
+                                                          false)
+                                                      ? post['author']
+                                                          .toString()
+                                                          .trim()
+                                                          .characters
+                                                          .first
+                                                          .toUpperCase()
+                                                      : 'Z',
+                                                  style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: TerminalDesign
+                                                          .gold))),
                                           const SizedBox(width: 10),
                                           Expanded(
                                               child: Column(
@@ -244,6 +352,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                                                             PrimeVestDesignSystem
                                                                 .textMuted)),
                                               ])),
+                                          CommunitySafetyMenu(
+                                              targetType: 'POST',
+                                              targetId: post['id'].toString(),
+                                              onChanged: () =>
+                                                  _load(invalidate: true)),
                                         ]),
                                         if ((post['text']?.toString() ?? '')
                                             .isNotEmpty) ...[
@@ -389,6 +502,7 @@ class _ComposePostScreenState extends ConsumerState<_ComposePostScreen> {
     if (sending || (text.text.trim().isEmpty && image == null)) return;
     setState(() => sending = true);
     try {
+      if (!await ensureCommunityRules(context, ref) || !mounted) return;
       String? imageId;
       if (image != null) {
         final response = await ref.read(apiClientProvider).upload(
@@ -423,7 +537,7 @@ class _ComposePostScreenState extends ConsumerState<_ComposePostScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Create post'), actions: [
+        appBar: AppBar(title: const TerminalAppTitle('Create post'), actions: [
           TextButton(
               onPressed: sending ? null : _submit, child: const Text('Post'))
         ]),
@@ -477,6 +591,7 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
   Map<String, dynamic>? replyingTo;
   String? cursor;
   String? error;
+  int loadGeneration = 0;
   bool loading = true;
   bool loadingMore = false;
   bool sending = false;
@@ -497,12 +612,12 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
             .setReconnectionDelayMax(30000)
             .build()
           ..addAll({'forceNew': true, 'multiplex': false}));
+    socket!.on('community:moderated', (_) => _load(invalidate: true));
     socket!.on('community:comment-created', (dynamic event) {
       if (!mounted || event is! Map || event['postId'] != widget.postId) {
         return;
       }
-      final item = event['comment'];
-      if (item is Map) _accept(_map(item));
+      _load();
     });
     socket!.connect();
   }
@@ -527,16 +642,26 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
     });
   }
 
-  Future<void> _load({bool more = false}) async {
+  Future<void> _load({bool more = false, bool invalidate = false}) async {
     if (more && (loadingMore || cursor == null)) return;
+    final generation = ++loadGeneration;
+    if (invalidate && mounted) {
+      setState(() {
+        comments.clear();
+        replyingTo = null;
+        cursor = null;
+        loadingMore = false;
+      });
+    }
     if (more) setState(() => loadingMore = true);
     try {
       final response = await ref.read(apiClientProvider).get(
           '/community/posts/${widget.postId}/comments', _map,
           queryParameters: more ? {'cursor': cursor} : null);
-      if (mounted) {
+      if (mounted && generation == loadGeneration) {
         setState(() {
           final data = response.data;
+          if (!more) comments.clear();
           final incoming = (data['items'] as List).map(_map);
           final known = comments.map((item) => item['id']).toSet();
           comments
@@ -550,7 +675,7 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
         });
       }
     } catch (failure) {
-      if (mounted) {
+      if (mounted && generation == loadGeneration) {
         setState(() {
           error = failure is ApiFailure
               ? failure.message
@@ -566,6 +691,7 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
     if (sending || text.text.trim().isEmpty) return;
     setState(() => sending = true);
     try {
+      if (!await ensureCommunityRules(context, ref) || !mounted) return;
       final response = await ref.read(apiClientProvider).post(
           '/community/posts/${widget.postId}/comments',
           {
@@ -593,7 +719,7 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Discussion')),
+        appBar: AppBar(title: const TerminalAppTitle('Discussion')),
         body: Column(children: [
           Expanded(
               child: loading
@@ -659,6 +785,16 @@ class _CommentsScreenState extends ConsumerState<_CommentsScreen> {
                                                         color:
                                                             PrimeVestDesignSystem
                                                                 .textMuted)),
+                                                CommunitySafetyMenu(
+                                                    targetType: 'COMMENT',
+                                                    targetId: comment['id']
+                                                        .toString(),
+                                                    onChanged: () {
+                                                      setState(() {
+                                                        replyingTo = null;
+                                                      });
+                                                      _load(invalidate: true);
+                                                    }),
                                               ]),
                                               if (reply &&
                                                   comment['replyToAuthor'] !=

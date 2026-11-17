@@ -38,6 +38,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
   const ledger = new LedgerService();
   const idempotency = new IdempotencyService();
   const config = new ConfigService({
+    DEMO_INITIAL_BALANCE_USD: "100000.00",
     COMPLIANCE_MODE: "DEMO_ONLY",
     ENABLE_REAL_TRADING: "false",
     EXECUTION_PROVIDER: "MOCK",
@@ -143,7 +144,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
           where: {
             accountId_currencyCode: {
               accountId: funded.demoAccountId,
-              currencyCode: "BDT",
+              currencyCode: "USD",
             },
           },
         }),
@@ -304,7 +305,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
       where: {
         accountId_currencyCode: {
           accountId: timedUser.demoAccountId,
-          currencyCode: "BDT",
+          currencyCode: "USD",
         },
       },
       select: { lockedProjection: true },
@@ -342,7 +343,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
           where: {
             accountId_currencyCode: {
               accountId: timedUser.demoAccountId,
-              currencyCode: "BDT",
+              currencyCode: "USD",
             },
           },
         }),
@@ -430,7 +431,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
         where: {
           accountId_currencyCode: {
             accountId: user.demoAccountId,
-            currencyCode: "BDT",
+            currencyCode: "USD",
           },
         },
       });
@@ -580,7 +581,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
       where: {
         accountId_currencyCode: {
           accountId: user.demoAccountId,
-          currencyCode: "BDT",
+          currencyCode: "USD",
         },
       },
     });
@@ -644,7 +645,7 @@ suite("PostgreSQL account and demo trading integrity", () => {
 
   async function available(accountId: string): Promise<Prisma.Decimal> {
     const wallet = await prisma.wallet.findUniqueOrThrow({
-      where: { accountId_currencyCode: { accountId, currencyCode: "BDT" } },
+      where: { accountId_currencyCode: { accountId, currencyCode: "USD" } },
       select: { availableProjection: true },
     });
     return wallet.availableProjection;
@@ -654,8 +655,8 @@ suite("PostgreSQL account and demo trading integrity", () => {
     const suffix = randomUUID();
     return prisma.$transaction(async (tx) => {
       await tx.currency.upsert({
-        where: { code: "BDT" },
-        create: { code: "BDT", name: "Bangladeshi Taka", precision: 2 },
+        where: { code: "USD" },
+        create: { code: "USD", name: "US Dollar", precision: 2 },
         update: {},
       });
       const user = await tx.user.create({
@@ -676,12 +677,12 @@ suite("PostgreSQL account and demo trading integrity", () => {
         data: [
           {
             accountId: demo.id,
-            currencyCode: "BDT",
+            currencyCode: "USD",
             availableProjection: amount,
           },
           {
             accountId: real.id,
-            currencyCode: "BDT",
+            currencyCode: "USD",
           },
         ],
       });

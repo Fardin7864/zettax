@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:primevest_mobile/app/design_system.dart';
-import 'package:primevest_mobile/app/app_update_host.dart';
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:primevest_mobile/app/top_notification.dart';
 import 'package:primevest_mobile/core/app_providers.dart';
 import 'package:primevest_mobile/features/asset/asset_detail_screen.dart';
@@ -126,7 +126,9 @@ class PrimeVestApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Zettax',
       debugShowCheckedModeBanner: false,
-      theme: PrimeVestDesignSystem.theme,
+      theme: kIsWeb
+          ? PrimeVestDesignSystem.theme
+          : TerminalDesign.theme(PrimeVestDesignSystem.theme),
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       builder: (context, child) {
         final content =
@@ -142,11 +144,10 @@ class PrimeVestApp extends ConsumerWidget {
             ),
           );
         }
-        if (defaultTargetPlatform == TargetPlatform.iOS ||
-            const String.fromEnvironment('ZETTAX_DISTRIBUTION') == 'play') {
-          return content;
-        }
-        return AppUpdateHost(navigatorKey: rootNavigatorKey, child: content);
+        return DecoratedBox(
+            decoration:
+                const BoxDecoration(gradient: TerminalDesign.background),
+            child: content);
       },
       routerConfig: ref.watch(routerProvider),
       locale: ref.watch(appLocaleProvider),

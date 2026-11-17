@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +50,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
         config.tradingAvailableFor(ref.watch(selectedAccountModeProvider));
     final positive = asset.changePercent >= 0;
     return Scaffold(
-      appBar: AppBar(title: Text(asset.symbol), actions: [
+      appBar: AppBar(title: TerminalAppTitle(asset.symbol), actions: [
         const AccountModeSelector(),
         IconButton(
             tooltip: 'Refresh market data',

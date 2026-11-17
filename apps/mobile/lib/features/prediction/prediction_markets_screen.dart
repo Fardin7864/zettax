@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -207,7 +208,8 @@ class _PredictionMarketsScreenState
         .firstOrNull
         ?.available;
     return Scaffold(
-      appBar: AppBar(title: const Text('Prediction Markets'), actions: [
+      appBar:
+          AppBar(title: const TerminalAppTitle('Prediction Markets'), actions: [
         IconButton(
             tooltip: 'Create question',
             onPressed: _create,

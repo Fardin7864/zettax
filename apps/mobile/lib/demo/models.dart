@@ -81,7 +81,6 @@ class TimedContract {
     required this.entryPrice,
     required this.entryTimestamp,
     required this.expiryTimestamp,
-    required this.payoutRate,
     required this.priceSource,
     required this.entrySequence,
     this.expiryPrice,
@@ -97,7 +96,6 @@ class TimedContract {
   final double entryPrice;
   final DateTime entryTimestamp;
   final DateTime expiryTimestamp;
-  final double payoutRate;
   final String priceSource;
   final int entrySequence;
   final double? expiryPrice;
@@ -115,7 +113,6 @@ class TimedContract {
         entryPrice: entryPrice,
         entryTimestamp: entryTimestamp,
         expiryTimestamp: expiryTimestamp,
-        payoutRate: payoutRate,
         priceSource: priceSource,
         entrySequence: entrySequence,
         expiryPrice: price,
@@ -123,6 +120,23 @@ class TimedContract {
         settledAt: time,
         result: outcome,
       );
+}
+
+/// Virtual practice returns follow the observed percentage movement.
+/// There is no fixed win bonus or all-or-nothing loss for a small price move.
+int proportionalVirtualReturn(int stakeCents, double entryPrice,
+    double expiryPrice, ContractDirection direction) {
+  if (stakeCents <= 0 ||
+      !entryPrice.isFinite ||
+      entryPrice <= 0 ||
+      !expiryPrice.isFinite ||
+      expiryPrice < 0) {
+    throw ArgumentError('Invalid virtual settlement inputs');
+  }
+  final movement = (expiryPrice - entryPrice) / entryPrice;
+  final result = stakeCents *
+      (1 + movement * (direction == ContractDirection.up ? 1 : -1));
+  return result <= 0 ? 0 : result.round();
 }
 
 class DemoTransaction {

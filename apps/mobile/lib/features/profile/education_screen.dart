@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,7 +7,7 @@ class EducationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Help & education')),
+        appBar: AppBar(title: const TerminalAppTitle('Help & education')),
         body: ListView(padding: const EdgeInsets.all(20), children: [
           const Text('How trading works',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
@@ -73,7 +74,7 @@ class RiskDisclosureScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Risk disclosure')),
+        appBar: AppBar(title: const TerminalAppTitle('Risk disclosure')),
         body: ListView(padding: const EdgeInsets.all(20), children: [
           const Text('Understand the risks before trading',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),

@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.PathSensitivity
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -5,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.primevest.app"
+    namespace = "com.zettax.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -19,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.primevest.app"
+        applicationId = "com.zettax.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -57,16 +59,14 @@ android {
 
     buildTypes {
         release {
-            // Preserve the original signing certificate for direct APK updates.
-            // The Play bundle uses a separate upload key when explicitly requested.
-            signingConfig = if (System.getenv("ZETTAX_ANDROID_DISTRIBUTION") == "play") {
-                signingConfigs.findByName("playUpload")
-                    ?: error("Set ZETTAX_PLAY_UPLOAD_KEYSTORE and ZETTAX_PLAY_UPLOAD_PASSWORD before building a Play release.")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // Select signing by flavor, never by an optional distribution flag.
+            // A Play release without its upload key stays unsigned for auditing.
+            signingConfig = null
         }
     }
+
+    productFlavors.getByName("direct").signingConfig = signingConfigs.getByName("debug")
+    productFlavors.getByName("play").signingConfig = signingConfigs.findByName("playUpload")
 
 }
 
@@ -78,4 +78,17 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Flutter 3.44.3 can leave flavored JNI merge tasks UP-TO-DATE after Dart
+// recompiles (flutter/flutter#187553). Track the generated native libraries
+// explicitly so APKs/AABs package the code compiled by this build.
+androidComponents.onVariants { variant ->
+    val taskSuffix = variant.name.replaceFirstChar { it.uppercaseChar() }
+    tasks.matching { it.name == "merge${taskSuffix}JniLibFolders" }.configureEach {
+        dependsOn("copyJniLibsflutterBuild${taskSuffix}")
+        inputs.dir(layout.buildDirectory.dir("intermediates/flutter/${variant.name}/jniLibs"))
+            .withPropertyName("zettaxFlutterNativeLibraries")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
 }

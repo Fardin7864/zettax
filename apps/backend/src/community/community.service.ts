@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { ApiErrorException } from "../http/api-error";
 import { EvidenceService } from "../funding/evidence.service";
+import { CommunitySafetyService } from "./community-safety.service";
 import { CommunityGateway } from "./community.gateway";
 
 const authorSelect = { profile: { select: { fullName: true } } } as const;
@@ -13,6 +14,7 @@ export class CommunityService {
     private readonly prisma: PrismaService,
     private readonly evidence: EvidenceService,
     private readonly gateway: CommunityGateway,
+    private readonly safety: CommunitySafetyService,
   ) {}
 
   private async serializable<T>(
@@ -64,7 +66,9 @@ export class CommunityService {
   }
 
   async list(userId: string, cursor?: string) {
+    const blocked = await this.safety.blockedIds(userId);
     const rows = await this.prisma.communityPost.findMany({
+      where: { hiddenAt: null, authorId: { notIn: blocked } },
       take: 21,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -86,6 +90,7 @@ export class CommunityService {
     textInput: string | undefined,
     imageEvidenceId?: string,
   ) {
+    await this.safety.assertRules(userId);
     const text = (textInput ?? "").trim();
     if ((!text && !imageEvidenceId) || text.length > 2000)
       throw new ApiErrorException(
@@ -94,6 +99,7 @@ export class CommunityService {
         HttpStatus.BAD_REQUEST,
       );
     const row = await this.serializable(async (tx) => {
+      await this.safety.assertRules(userId, tx);
       if (imageEvidenceId) {
         const image = await tx.evidenceFile.findUnique({
           where: { id: imageEvidenceId },
@@ -143,9 +149,11 @@ export class CommunityService {
     postId: string,
     value: "LIKE" | "DISLIKE" | "NONE",
   ) {
+    await this.safety.assertVisiblePost(userId, postId);
     const row = await this.serializable(async (tx) => {
+      await this.safety.assertVisiblePost(userId, postId, tx);
       const post = await tx.communityPost.findUnique({ where: { id: postId } });
-      if (!post)
+      if (!post || post.hiddenAt)
         throw new ApiErrorException(
           "POST_NOT_FOUND",
           "Post not found.",
@@ -189,15 +197,23 @@ export class CommunityService {
     };
   }
 
-  async comments(postId: string, cursor?: string) {
+  async comments(postId: string, cursor: string | undefined, userId: string) {
+    await this.safety.assertVisiblePost(userId, postId);
+    const blocked = await this.safety.blockedIds(userId);
     const rows = await this.prisma.communityComment.findMany({
-      where: { postId },
+      where: { postId, hiddenAt: null, userId: { notIn: blocked } },
       take: 51,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       include: {
         user: { select: authorSelect },
-        parent: { select: { user: { select: authorSelect } } },
+        parent: {
+          select: {
+            userId: true,
+            hiddenAt: true,
+            user: { select: authorSelect },
+          },
+        },
       },
     });
     const items = rows.slice(0, 50).map((row) => ({
@@ -205,7 +221,12 @@ export class CommunityService {
       parentId: row.parentId,
       text: row.text,
       author: row.user.profile?.fullName || "Zettax member",
-      replyToAuthor: row.parent?.user.profile?.fullName || null,
+      replyToAuthor:
+        row.parent &&
+        !row.parent.hiddenAt &&
+        !blocked.includes(row.parent.userId)
+          ? row.parent.user.profile?.fullName || null
+          : null,
       replyCount: row.replyCount,
       createdAt: row.createdAt,
     }));
@@ -218,6 +239,8 @@ export class CommunityService {
     textInput: string,
     parentId?: string,
   ) {
+    await this.safety.assertRules(userId);
+    await this.safety.assertVisiblePost(userId, postId);
     const text = textInput.trim();
     if (!text || text.length > 1000)
       throw new ApiErrorException(
@@ -226,11 +249,13 @@ export class CommunityService {
         HttpStatus.BAD_REQUEST,
       );
     const result = await this.serializable(async (tx) => {
+      await this.safety.assertRules(userId, tx);
+      await this.safety.assertVisiblePost(userId, postId, tx);
       const existingPost = await tx.communityPost.findUnique({
         where: { id: postId },
-        select: { id: true },
+        select: { id: true, hiddenAt: true },
       });
-      if (!existingPost)
+      if (!existingPost || existingPost.hiddenAt)
         throw new ApiErrorException(
           "POST_NOT_FOUND",
           "Post not found.",
@@ -242,7 +267,13 @@ export class CommunityService {
             include: { user: { select: authorSelect } },
           })
         : null;
-      if (parentId && (!parent || parent.postId !== postId)) {
+      if (
+        parentId &&
+        (!parent ||
+          parent.hiddenAt ||
+          parent.postId !== postId ||
+          (await this.safety.blockedIds(userId, tx)).includes(parent.userId))
+      ) {
         throw new ApiErrorException(
           "PARENT_NOT_FOUND",
           "The comment you replied to was not found.",
@@ -276,12 +307,14 @@ export class CommunityService {
       createdAt: result.comment.createdAt,
     };
     this.gateway.changed(result.post);
-    this.gateway.commentCreated(postId, created);
+    this.gateway.commentCreated(postId);
     return created;
   }
 
   async share(userId: string, postId: string) {
+    await this.safety.assertVisiblePost(userId, postId);
     const result = await this.serializable(async (tx) => {
+      await this.safety.assertVisiblePost(userId, postId, tx);
       const existing = await tx.communityShare.findUnique({
         where: { postId_userId: { postId, userId } },
       });
@@ -300,9 +333,9 @@ export class CommunityService {
   async image(postId: string) {
     const row = await this.prisma.communityPost.findUnique({
       where: { id: postId },
-      select: { imageEvidenceId: true },
+      select: { imageEvidenceId: true, hiddenAt: true },
     });
-    if (!row?.imageEvidenceId)
+    if (!row?.imageEvidenceId || row.hiddenAt)
       throw new ApiErrorException(
         "IMAGE_NOT_FOUND",
         "Image not found.",

@@ -1,3 +1,5 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
+import 'package:primevest_mobile/app/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:primevest_mobile/features/shared/live_trade_chart.dart';
@@ -51,6 +53,22 @@ void main() {
     expect(find.text('MA(25): 208.00'), findsOneWidget);
     expect(find.text('MA(99): 171.00'), findsOneWidget);
     expect(find.text('Loaded 120 bars'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(MaterialApp(
+        theme: TerminalDesign.theme(PrimeVestDesignSystem.theme),
+        home: Scaffold(
+            body: SizedBox(
+                width: 320,
+                height: 380,
+                child: LiveTradeChart(
+                    series: series, precision: 2, showTools: true)))));
+    await tester.tap(find.byTooltip('Line chart'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<OhlcChart>(find.byType(OhlcChart)).lineMode, isTrue);
+    await tester.tap(find.text('Indicators'));
+    await tester.pumpAndSettle();
+    expect(find.text('Technical indicators'), findsOneWidget);
+    expect(find.text('217.00'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -58,7 +58,7 @@ suite("funding evidence and double-entry settlement", () => {
   async function wallet() {
     return prisma.wallet.findUniqueOrThrow({
       where: {
-        accountId_currencyCode: { accountId: account, currencyCode: "BDT" },
+        accountId_currencyCode: { accountId: account, currencyCode: "USD" },
       },
     });
   }
@@ -79,7 +79,7 @@ suite("funding evidence and double-entry settlement", () => {
         data: {
           userId: user,
           mode: "REAL",
-          wallets: { create: { currencyCode: "BDT" } },
+          wallets: { create: { currencyCode: "USD" } },
         },
       })
     ).id;
@@ -99,9 +99,21 @@ suite("funding evidence and double-entry settlement", () => {
         },
       })
     ).id;
+    // Dedicated high-limit method avoids changing the seeded public payment methods.
     method = (
-      await prisma.paymentMethod.findFirstOrThrow({
-        where: { type: "BKASH", isEnabled: true },
+      await prisma.paymentMethod.create({
+        data: {
+          type: "BKASH",
+          displayName: `Fixture ${randomUUID()}`,
+          accountNumber: "fictional",
+          accountType: "PERSONAL",
+          instructions: "Fixture only",
+          minimumDeposit: "100",
+          maximumDeposit: "1000000",
+          isEnabled: true,
+          feeType: "NONE",
+          feeValue: "0",
+        },
       })
     ).id;
     await prisma.kycCase.create({ data: { userId: user, status: "APPROVED" } });
@@ -118,7 +130,7 @@ suite("funding evidence and double-entry settlement", () => {
       receipt = await evidence(user, "USER", "DEPOSIT");
     const body = {
       paymentMethodId: method,
-      amount: "1000.00",
+      amount: "125000.00",
       senderMobile: "+8801712345678",
       providerTransactionId: randomUUID().replaceAll("-", "").slice(0, 16),
       evidenceObjectKey: receipt.objectKey,
@@ -147,7 +159,7 @@ suite("funding evidence and double-entry settlement", () => {
     expect(one.id).toBe(two.id);
     depositId = one.id;
     await expect(
-      funding.createDeposit(user, key, { ...body, amount: "1001.00" }, audit),
+      funding.createDeposit(user, key, { ...body, amount: "125001.00" }, audit),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_KEY_REUSED" });
     expect((await wallet()).availableProjection.toFixed(2)).toBe("0.00");
   });

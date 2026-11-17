@@ -19,14 +19,24 @@ export class CommunityGateway {
     commentCount: number;
     shareCount: number;
   }) {
-    this.server?.emit("community:changed", post);
+    this.server?.emit("community:changed", {
+      id: post.id,
+      likeCount: post.likeCount,
+      dislikeCount: post.dislikeCount,
+      commentCount: post.commentCount,
+      shareCount: post.shareCount,
+    });
+  }
+
+  moderated() {
+    this.server?.emit("community:moderated", {});
   }
 
   created(postId: string) {
     this.server?.emit("community:created", { postId });
   }
 
-  commentCreated(postId: string, comment: Record<string, unknown>) {
-    this.server?.emit("community:comment-created", { postId, comment });
+  commentCreated(postId: string) {
+    this.server?.emit("community:comment-created", { postId });
   }
 }

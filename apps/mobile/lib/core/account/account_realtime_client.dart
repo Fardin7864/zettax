@@ -121,7 +121,7 @@ class AccountRealtimeSubscription {
   void connect() {
     if (_disposed || _socket != null) return;
     _lastSequence = initialSequence;
-    final api = Uri.parse(ApiEnvironment.baseUrlValue);
+    final api = ApiEnvironment.baseUri;
     final endpoint = api.replace(path: '/account', query: null, fragment: null);
     final auth = <String, dynamic>{'token': accessToken};
     if (initialSequence != null) {

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -558,23 +560,48 @@ class ProfileTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(vertical: 3),
-        leading: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-                color: PrimeVestDesignSystem.surfaceDark,
-                borderRadius: BorderRadius.circular(12)),
-            child:
-                Icon(icon, color: PrimeVestDesignSystem.primaryGold, size: 21)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle,
-            style: const TextStyle(
-                color: PrimeVestDesignSystem.textMuted, fontSize: 11)),
-        trailing: const Icon(Icons.chevron_right),
-      );
+  Widget build(BuildContext context) => !kIsWeb
+      ? Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: TerminalPanel(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              child: ListTile(
+                  onTap: onTap,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                          color: TerminalDesign.gold.withValues(alpha: .10),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Icon(icon, color: TerminalDesign.gold, size: 18)),
+                  title: Text(title,
+                      style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  subtitle: Text(subtitle,
+                      style: const TextStyle(
+                          color: TerminalDesign.muted, fontSize: 10)),
+                  trailing: const Icon(Icons.chevron_right, size: 17))))
+      : ListTile(
+          onTap: onTap,
+          contentPadding: const EdgeInsets.symmetric(vertical: 3),
+          leading: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                  color: PrimeVestDesignSystem.surfaceDark,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon,
+                  color: PrimeVestDesignSystem.primaryGold, size: 21)),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(subtitle,
+              style: const TextStyle(
+                  color: PrimeVestDesignSystem.textMuted, fontSize: 11)),
+          trailing: const Icon(Icons.chevron_right),
+        );
 }
 
 String timeAgo(DateTime time) {

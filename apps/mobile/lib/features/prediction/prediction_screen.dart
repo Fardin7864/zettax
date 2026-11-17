@@ -1,3 +1,4 @@
+import 'package:primevest_mobile/app/terminal_design.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -184,7 +185,7 @@ class _PredictionScreenState extends ConsumerState<PredictionScreen> {
             .contains(query.toLowerCase()))
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Prediction'), actions: [
+      appBar: AppBar(title: const TerminalAppTitle('Prediction'), actions: [
         IconButton(
             onPressed: () {
               _refreshPrices();

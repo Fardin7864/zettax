@@ -114,7 +114,7 @@ class MarketRealtimeSubscription {
 
   void connect() {
     if (_disposed || _socket != null) return;
-    final api = Uri.parse(ApiEnvironment.baseUrlValue);
+    final api = ApiEnvironment.baseUri;
     final endpoint = api.replace(path: '/market', query: null, fragment: null);
     var options = io.OptionBuilder()
         .setTransports(['websocket'])
